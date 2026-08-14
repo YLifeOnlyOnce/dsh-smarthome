@@ -10,7 +10,7 @@
   .overlay {
     position: absolute; inset: 0; z-index: 2; pointer-events: none;
     font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-    padding: 110px 0 0 56px;
+    padding: 150px 0 0 56px;
   }
   .title {
     font-size: 50px; font-weight: 800; letter-spacing: -1px; color: #f2f5fa;
@@ -107,8 +107,8 @@ function drawParticles(t) {
 // ---------------------------------------------------------------------------
 // 链路：DSH → HA → 设备
 // ---------------------------------------------------------------------------
-const DSH = { x: 560, y: 330, w: 170, h: 76 }
-const HA = { x: 820, y: 330, w: 170, h: 76 }
+const DSH = { x: 760, y: 230, w: 170, h: 76 }
+const HA = { x: 1010, y: 230, w: 170, h: 76 }
 
 function roundRect(x, y, w, h, r) {
   ctx.beginPath()
@@ -173,17 +173,17 @@ function drawLink(from, to, t, label) {
 }
 
 // ---------------------------------------------------------------------------
-// 设备集群（底部一排 8 个，带状态点）
+// 设备集群（右侧两行，带状态点）
 // ---------------------------------------------------------------------------
 const DEVICES = [
-  { icon: '💡', x: 224, y: 560, name: 'light', color: '251,191,36', on: true },
-  { icon: '❄️', x: 328, y: 560, name: 'climate', color: '96,165,250', on: true },
-  { icon: '🎥', x: 432, y: 560, name: 'camera', color: '251,146,60', on: true },
-  { icon: '📺', x: 536, y: 560, name: 'media', color: '129,140,248', on: false },
-  { icon: '🔌', x: 640, y: 560, name: 'switch', color: '110,231,183', on: false },
-  { icon: '🔒', x: 744, y: 560, name: 'lock', color: '110,231,183', on: true },
-  { icon: '🚪', x: 848, y: 560, name: 'door', color: '148,163,184', on: false },
-  { icon: '🎬', x: 952, y: 560, name: 'scene', color: '232,121,249', on: true },
+  { icon: '💡', x: 700, y: 410, name: 'light', color: '251,191,36', on: true },
+  { icon: '❄️', x: 830, y: 410, name: 'climate', color: '96,165,250', on: true },
+  { icon: '🎥', x: 960, y: 410, name: 'camera', color: '251,146,60', on: true },
+  { icon: '📺', x: 1090, y: 410, name: 'media', color: '129,140,248', on: false },
+  { icon: '🔌', x: 700, y: 550, name: 'switch', color: '110,231,183', on: false },
+  { icon: '🔒', x: 830, y: 550, name: 'lock', color: '110,231,183', on: true },
+  { icon: '🚪', x: 960, y: 550, name: 'door', color: '148,163,184', on: false },
+  { icon: '🎬', x: 1090, y: 550, name: 'scene', color: '232,121,249', on: true },
 ]
 
 function drawDevices(t) {
@@ -193,12 +193,11 @@ function drawDevices(t) {
     const breathe = 0.5 + 0.5 * Math.sin(t * 0.002 + i * 1.2)
     // 控制线：HA → 设备
     const dx = d.x - HA.x, dy = d.y - HA.y
-    const len = Math.hypot(dx, dy)
     const off = (t * 0.0007 + i * 0.14) % 1
     const px = HA.x + dx * off, py = HA.y + dy * off
     ctx.strokeStyle = `rgba(${r},${g},${b},0.22)`
     ctx.lineWidth = 1.2
-    ctx.beginPath(); ctx.moveTo(HA.x + 30, HA.y + 20); ctx.lineTo(d.x - 44, d.y - 32); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(HA.x + 25, HA.y + 38); ctx.lineTo(d.x - 44, d.y - 32); ctx.stroke()
     const g1 = ctx.createRadialGradient(px, py, 0, px, py, 5)
     g1.addColorStop(0, `rgba(${r},${g},${b},0.9)`)
     g1.addColorStop(1, `rgba(${r},${g},${b},0)`)

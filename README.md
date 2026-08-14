@@ -31,6 +31,10 @@ Click any image to open the live demo — [`docs/demo.html`](docs/demo.html) sim
 
 <p align="center"><img src="docs/assets/dashboard.png" width="420" alt="home dashboard"></p>
 
+**The Home Assistant it plugs into** — a typical smart-home dashboard like this one (illustration):
+
+<p align="center"><img src="docs/assets/ha-mockup.png" width="680" alt="Home Assistant dashboard illustration"></p>
+
 ## 🎯 What can it do?
 
 Talk to your home the way you talk to an assistant — every write goes through a human approval gate first.

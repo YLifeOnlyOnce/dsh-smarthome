@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Home Assistant 仪表盘示意</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #0b0e14; color: #e8ecf4; overflow: hidden;
+    display: flex; height: 100vh;
+  }
+  /* ---------- 侧边栏 ---------- */
+  .side {
+    width: 220px; padding: 26px 18px; background: #0d1119;
+    border-right: 1px solid #1a202c; display: flex; flex-direction: column; gap: 4px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 10px 20px; }
+  .brand .mark {
+    width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, #2dd4bf, #38bdf8);
+    display: flex; align-items: center; justify-content: center; font-size: 17px; color: #04121a;
+  }
+  .brand .name { font-weight: 700; font-size: 15px; letter-spacing: .2px; }
+  .brand .name small { display: block; font-weight: 500; font-size: 10px; color: #5b6b81; }
+  .nav { display: flex; align-items: center; gap: 11px; padding: 10px 10px; border-radius: 10px; font-size: 13.5px; color: #7d8ca3; }
+  .nav.on { background: #151b26; color: #e8ecf4; }
+  .nav .ic { width: 20px; text-align: center; }
+  .side .spacer { flex: 1; }
+  /* ---------- 主区 ---------- */
+  .main { flex: 1; padding: 26px 34px; overflow: auto; }
+  .head { display: flex; align-items: center; margin-bottom: 24px; }
+  .head h1 { font-size: 22px; font-weight: 700; flex: 1; }
+  .weather { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #9fb0c6; margin-right: 18px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #f472b6, #a78bfa); }
+  /* ---------- 卡片 ---------- */
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .card {
+    background: linear-gradient(180deg, #141a24, #10151e);
+    border: 1px solid #1e2634; border-radius: 16px; padding: 18px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  }
+  .card .t { font-size: 12px; color: #6b7c94; font-weight: 600; letter-spacing: .4px; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
+  .big { grid-column: span 2; }
+  /* 温控 */
+  .thermo { display: flex; align-items: center; gap: 18px; }
+  .dial { position: relative; width: 118px; height: 118px; }
+  .dial svg { transform: rotate(-90deg); }
+  .dial .val { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .dial .val b { font-size: 26px; font-weight: 700; }
+  .dial .val span { font-size: 10px; color: #6b7c94; }
+  .tinfo { flex: 1; }
+  .tinfo .mode { display: inline-block; font-size: 11px; color: #fbbf24; background: rgba(251,191,36,.12); padding: 3px 9px; border-radius: 99px; margin-bottom: 8px; }
+  .tinfo .temp { font-size: 17px; font-weight: 700; }
+  .tinfo .hint { font-size: 11px; color: #6b7c94; margin-top: 4px; }
+  /* 灯光 */
+  .light-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #1a222f; }
+  .light-row:last-child { border-bottom: none; }
+  .light-row .ic { font-size: 16px; width: 24px; text-align: center; }
+  .light-row .nm { flex: 1; font-size: 13px; }
+  .light-row .nm small { display: block; color: #5b6b81; font-size: 10.5px; }
+  .pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
+  .pill.on { color: #2dd4bf; background: rgba(45,212,191,.14); }
+  .pill.off { color: #5b6b81; background: #161d29; }
+  .bright { flex: 0 0 60px; height: 4px; border-radius: 4px; background: #1c2533; position: relative; }
+  .bright i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+  /* 能耗 */
+  .chart { width: 100%; height: 120px; }
+  .chips { display: flex; gap: 8px; margin-top: 10px; }
+  .chip { flex: 1; text-align: center; font-size: 11px; color: #7d8ca3; padding: 6px 0; border-radius: 9px; background: #121824; }
+  .chip b { display: block; font-size: 13px; color: #e8ecf4; }
+  /* 影音 / 安防 / 场景 */
+  .media { display: flex; align-items: center; gap: 12px; }
+  .media .art { width: 46px; height: 46px; border-radius: 10px; background: linear-gradient(135deg, #818cf8, #c084fc); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  .media .mi { flex: 1; }
+  .media .mi b { font-size: 13.5px; display: block; }
+  .media .mi span { font-size: 11px; color: #6b7c94; }
+  .sec-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 13px; }
+  .sec-row .ic { width: 22px; text-align: center; }
+  .sec-row .nm { flex: 1; }
+  .sec-row .st { font-size: 11px; color: #2dd4bf; font-weight: 600; }
+  .sec-row .st.off { color: #6b7c94; }
+  .scene-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .scene-chips .s { font-size: 12px; padding: 6px 12px; border-radius: 99px; border: 1px solid #263041; color: #cdd8e8; }
+  .scene-chips .s.hot { background: linear-gradient(135deg, rgba(45,212,191,.18), rgba(56,189,248,.18)); border-color: rgba(45,212,191,.45); color: #7ff3e2; }
+  /* 传感器条 */
+  .sensors { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .sen { display: flex; align-items: center; gap: 12px; }
+  .sen .ic { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  .sen .ic.c { background: rgba(56,189,248,.14); }
+  .sen .ic.d { background: rgba(45,212,191,.14); }
+  .sen .ic.e { background: rgba(251,191,36,.14); }
+  .sen b { font-size: 16px; display: block; }
+  .sen span { font-size: 11px; color: #6b7c94; }
+</style>
+</head>
+<body>
+<div class="side">
+  <div class="brand"><div class="mark">⌂</div><div class="name">Home Assistant<small>我的家 · 上海</small></div></div>
+  <div class="nav on"><span class="ic">🛋</span>概览</div>
+  <div class="nav"><span class="ic">📊</span>能源</div>
+  <div class="nav"><span class="ic">💡</span>灯光</div>
+  <div class="nav"><span class="ic">🌡</span>温控</div>
+  <div class="nav"><span class="ic">🔐</span>安防</div>
+  <div class="nav"><span class="ic">🎬</span>场景</div>
+  <div class="spacer"></div>
+  <div class="nav"><span class="ic">⚙</span>设置</div>
+</div>
+
+<div class="main">
+  <div class="head">
+    <h1>我的家</h1>
+    <div class="weather">⛅ 22° · 多云</div>
+    <div class="avatar"></div>
+  </div>
+
+  <div class="grid">
+    <!-- 温控 -->
+    <div class="card big">
+      <div class="t">🌡 温控 · 客厅</div>
+      <div class="thermo">
+        <div class="dial">
+          <svg width="118" height="118" viewBox="0 0 118 118">
+            <circle cx="59" cy="59" r="50" fill="none" stroke="#1c2533" stroke-width="10"/>
+            <circle cx="59" cy="59" r="50" fill="none" stroke="url(#g)" stroke-width="10" stroke-linecap="round"
+              stroke-dasharray="314" stroke-dashoffset="86"/>
+            <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#2dd4bf"/>
+            </linearGradient></defs>
+          </svg>
+          <div class="val"><b>22.5°</b><span>目标 24°</span></div>
+        </div>
+        <div class="tinfo">
+          <span class="mode">❄ 制冷</span>
+          <div class="temp">当前 22.5°</div>
+          <div class="hint">风速 自动 · 摆风 开</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 灯光 -->
+    <div class="card">
+      <div class="t">💡 灯光</div>
+      <div class="light-row"><span class="ic">💡</span><div class="nm">客厅灯<small>暖白 · 60%</small></div><span class="pill on">开</span><div class="bright"><i style="width:60%"></i></div></div>
+      <div class="light-row"><span class="ic">💡</span><div class="nm">卧室灯<small>关</small></div><span class="pill off">关</span><div class="bright"><i style="width:0%"></i></div></div>
+    </div>
+
+    <!-- 能耗 -->
+    <div class="card big">
+      <div class="t">📊 能耗 · 近 7 天</div>
+      <canvas class="chart" id="chart"></canvas>
+      <div class="chips">
+        <div><b>3.2 kWh</b>今日</div>
+        <div><b>21.4 kWh</b>本周</div>
+        <div><b>¥ 42</b>本月</div>
+      </div>
+    </div>
+
+    <!-- 影音 -->
+    <div class="card">
+      <div class="t">📺 影音</div>
+      <div class="media">
+        <div class="art">🎬</div>
+        <div class="mi"><b>电影模式</b><span>电视 · 客厅 · 正在播放</span></div>
+      </div>
+    </div>
+
+    <!-- 安防 -->
+    <div class="card">
+      <div class="t">🔐 安防</div>
+      <div class="sec-row"><span class="ic">🔒</span><span class="nm">大门门锁</span><span class="st">已上锁</span></div>
+      <div class="sec-row"><span class="ic">🚪</span><span class="nm">入户门</span><span class="st off">已关闭</span></div>
+      <div class="sec-row"><span class="ic">🎥</span><span class="nm">门口摄像头</span><span class="st">在线</span></div>
+    </div>
+
+    <!-- 场景 -->
+    <div class="card">
+      <div class="t">🎬 场景</div>
+      <div class="scene-chips">
+        <span class="s hot">🎬 电影模式</span>
+        <span class="s">🌙 晚安</span>
+        <span class="s">🚪 离家</span>
+      </div>
+    </div>
+
+    <!-- 传感器 -->
+    <div class="sensors">
+      <div class="card sen"><div class="ic c">🌡</div><div><b>22.5°C</b><span>客厅温度</span></div></div>
+      <div class="card sen"><div class="ic d">💧</div><div><b>48%</b><span>客厅湿度</span></div></div>
+      <div class="card sen"><div class="ic e">⚡</div><div><b>320 W</b><span>全屋功率</span></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 能耗折线
+  const c = document.getElementById('chart')
+  const ctx = c.getContext('2d')
+  const W = 520, H = 120
+  c.width = W * 2; c.height = H * 2
+  c.style.width = W + 'px'; c.style.height = H + 'px'
+  ctx.scale(2, 2)
+  const data = [3.1, 4.2, 2.8, 5.4, 3.9, 4.8, 3.2]
+  const pad = 8
+  const max = 6
+  const stepX = (W - pad * 2) / (data.length - 1)
+  const pt = (i, v) => [pad + stepX * i, H - pad - (v / max) * (H - pad * 2)]
+  const grad = ctx.createLinearGradient(0, 0, 0, H)
+  grad.addColorStop(0, 'rgba(56,189,248,.35)')
+  grad.addColorStop(1, 'rgba(56,189,248,0)')
+  ctx.beginPath()
+  ctx.moveTo(pt(0, data[0])[0], H - pad)
+  data.forEach((v, i) => ctx.lineTo(...pt(i, v)))
+  ctx.lineTo(pt(data.length - 1, data[data.length - 1])[0], H - pad)
+  ctx.closePath(); ctx.fillStyle = grad; ctx.fill()
+  ctx.beginPath()
+  data.forEach((v, i) => { const [x, y] = pt(i, v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y) })
+  ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.stroke()
+  data.forEach((v, i) => {
+    const [x, y] = pt(i, v)
+    ctx.beginPath(); ctx.arc(x, y, 3.4, 0, Math.PI * 2)
+    ctx.fillStyle = '#0b0e14'; ctx.fill()
+    ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fillStyle = '#7dd3fc'; ctx.fill()
+  })
+</script>
+</body>
+</html>

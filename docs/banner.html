@@ -5,22 +5,27 @@
 <title>dsh-smarthome banner</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #04060b; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #05070d; }
   #scene { position: absolute; inset: 0; }
   .overlay {
     position: absolute; inset: 0; z-index: 2; pointer-events: none;
     font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-    padding: 175px 0 0 62px;
+    padding: 158px 0 0 68px;
   }
   .title {
-    font-size: 54px; font-weight: 800; letter-spacing: -1px; color: #f2f5fa;
-    text-shadow: 0 0 18px rgba(77, 124, 254, .55), 0 0 46px rgba(77, 124, 254, .28);
+    font-size: 64px; font-weight: 800; letter-spacing: -1.5px; color: #f4f7fc;
+    text-shadow: 0 0 22px rgba(77, 124, 254, .5), 0 0 60px rgba(77, 124, 254, .22);
   }
-  .title .dot { color: #6ee7b7; text-shadow: 0 0 14px rgba(110, 231, 183, .8); }
-  .zh1 { margin-top: 14px; font-size: 25px; color: #cfd8e6; font-weight: 700; }
+  .title .dot { color: #6ee7b7; text-shadow: 0 0 16px rgba(110, 231, 183, .85); }
+  .bar {
+    width: 66px; height: 4px; border-radius: 4px; margin-top: 18px;
+    background: linear-gradient(90deg, #38bdf8, #2dd4bf);
+    box-shadow: 0 0 14px rgba(56, 189, 248, .6);
+  }
+  .zh1 { margin-top: 18px; font-size: 27px; color: #d3dbe8; font-weight: 700; letter-spacing: .5px; }
   .zh2 {
-    margin-top: 5px; font-size: 25px; font-weight: 800; color: #8fb2ff;
-    text-shadow: 0 0 16px rgba(77, 124, 254, .45);
+    margin-top: 6px; font-size: 27px; font-weight: 800; color: #93b4ff; letter-spacing: .5px;
+    text-shadow: 0 0 20px rgba(77, 124, 254, .4);
   }
 </style>
 </head>
@@ -28,6 +33,7 @@
 <canvas id="scene"></canvas>
 <div class="overlay">
   <div class="title">dsh-smarthome<span class="dot">.</span></div>
+  <div class="bar"></div>
   <div class="zh1">一个插件接入 Home Assistant</div>
   <div class="zh2">完成智能家居全闭环</div>
 </div>
@@ -43,46 +49,52 @@ canvas.style.height = H + 'px'
 ctx.scale(2, 2)
 
 const TAU = Math.PI * 2
-const rand = (a, b) => a + Math.random() * (b - a)
 
 // ---------------------------------------------------------------------------
-// 背景：DeepSeek 官网风格的粒子海浪
+// 背景：深色渐变 + 大面积柔和光晕 + 一条优雅的弧线（无粒子）
 // ---------------------------------------------------------------------------
-const WAVE_PARTICLES = []
-const WAVE_COLS = 150
-const WAVE_ROWS = 16
-for (let row = 0; row < WAVE_ROWS; row++) {
-  for (let col = 0; col < WAVE_COLS; col++) {
-    const bx = (col / (WAVE_COLS - 1)) * W + rand(-4, 4)
-    const by = (row / (WAVE_ROWS - 1)) * (H - 30) + 15 + rand(-3, 3)
-    WAVE_PARTICLES.push({ bx, by, x: bx, y: by, size: rand(0.8, 1.9), phase: rand(0, TAU), drift: rand(-0.25, 0.25) })
-  }
+function drawBackground() {
+  // 基底
+  const base = ctx.createLinearGradient(0, 0, 0, H)
+  base.addColorStop(0, '#060a13')
+  base.addColorStop(0.55, '#081020')
+  base.addColorStop(1, '#0a1426')
+  ctx.fillStyle = base
+  ctx.fillRect(0, 0, W, H)
+
+  // 右上大面积蓝光（衬管道）
+  const glowA = ctx.createRadialGradient(1010, 210, 0, 1010, 210, 500)
+  glowA.addColorStop(0, 'rgba(77, 124, 254, 0.20)')
+  glowA.addColorStop(0.5, 'rgba(56, 130, 246, 0.08)')
+  glowA.addColorStop(1, 'rgba(56, 130, 246, 0)')
+  ctx.fillStyle = glowA
+  ctx.fillRect(0, 0, W, H)
+
+  // 左下青绿光（衬文字区底部）
+  const glowB = ctx.createRadialGradient(180, 560, 0, 180, 560, 430)
+  glowB.addColorStop(0, 'rgba(45, 212, 191, 0.10)')
+  glowB.addColorStop(1, 'rgba(45, 212, 191, 0)')
+  ctx.fillStyle = glowB
+  ctx.fillRect(0, 0, W, H)
+
+  // 一条优雅的弧线（地平线般的气韵）
+  ctx.beginPath()
+  ctx.moveTo(0, 600)
+  ctx.quadraticCurveTo(640, 510, 1280, 600)
+  const arc = ctx.createLinearGradient(0, 0, W, 0)
+  arc.addColorStop(0, 'rgba(56,189,248,0)')
+  arc.addColorStop(0.5, 'rgba(56,189,248,0.28)')
+  arc.addColorStop(1, 'rgba(110,231,183,0)')
+  ctx.strokeStyle = arc
+  ctx.lineWidth = 1.4
+  ctx.stroke()
 }
 
-function waveY(p, t) {
-  return p.by
-    + Math.sin(p.bx * 0.007 + t * 0.0011 + p.phase) * 16
-    + Math.sin(p.bx * 0.018 + t * 0.0024) * 7
-    + Math.sin(p.bx * 0.0035 - t * 0.0007) * 22
-}
-
-function drawParticles(t) {
-  for (const p of WAVE_PARTICLES) {
-    p.x = p.bx + Math.sin(t * 0.0005 + p.phase) * 4 + p.drift * 30
-    p.y = waveY(p, t)
-    const crest = Math.max(0, (p.y - p.by) / 45)
-    const alpha = 0.25 + crest * 0.75
-    ctx.fillStyle = `rgba(${80 + crest * 40}, ${150 + crest * 60}, ${110 + crest * 100}, ${alpha})`
-    const s = p.size * (1 + crest * 1.6)
-    ctx.fillRect(p.x, p.y, s, s)
-  }
-}
-
 // ---------------------------------------------------------------------------
-// 链路：DSH → HA → 设备（极简）
+// DSH → HA 玻璃芯片 + 连接线
 // ---------------------------------------------------------------------------
-const DSH = { x: 700, y: 250, w: 156, h: 64 }
-const HA = { x: 955, y: 250, w: 156, h: 64 }
+const DSH = { x: 740, y: 250, w: 170, h: 66 }
+const HA = { x: 985, y: 250, w: 170, h: 66 }
 
 function roundRect(x, y, w, h, r) {
   ctx.beginPath()
@@ -94,83 +106,83 @@ function roundRect(x, y, w, h, r) {
   ctx.closePath()
 }
 
-function drawNode(n, color, name, sub, t) {
-  const [r, g, b] = color.split(',').map(Number)
-  const glow = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, 110)
-  glow.addColorStop(0, `rgba(${r},${g},${b},0.20)`)
+function drawChip(n, accent, name, sub, t) {
+  const [r, g, b] = accent.split(',').map(Number)
+  // 底部柔光
+  const glow = ctx.createRadialGradient(n.x, n.y + 10, 0, n.x, n.y + 10, 90)
+  glow.addColorStop(0, `rgba(${r},${g},${b},0.22)`)
   glow.addColorStop(1, `rgba(${r},${g},${b},0)`)
   ctx.fillStyle = glow
-  ctx.fillRect(n.x - 110, n.y - 110, 220, 220)
-  roundRect(n.x - n.w / 2, n.y - n.h / 2, n.w, n.h, 16)
-  ctx.fillStyle = 'rgba(13, 16, 22, 0.92)'
+  ctx.fillRect(n.x - 90, n.y - 80, 180, 180)
+  // 玻璃主体
+  roundRect(n.x - n.w / 2, n.y - n.h / 2, n.w, n.h, 18)
+  ctx.fillStyle = 'rgba(13, 18, 28, 0.86)'
   ctx.fill()
-  ctx.strokeStyle = `rgba(${r},${g},${b},0.55)`
-  ctx.lineWidth = 1.6
+  ctx.strokeStyle = `rgba(${r},${g},${b},0.45)`
+  ctx.lineWidth = 1.4
   ctx.stroke()
+  // 顶部高光
+  const hi = ctx.createLinearGradient(0, n.y - n.h / 2, 0, n.y - n.h / 2 + n.h / 2)
+  hi.addColorStop(0, `rgba(255,255,255,0.07)`)
+  hi.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = hi
+  roundRect(n.x - n.w / 2, n.y - n.h / 2, n.w, n.h / 2, 18)
+  ctx.fill()
+  // 文字
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
   ctx.font = '800 26px system-ui, sans-serif'
-  ctx.fillStyle = '#f2f5fa'
+  ctx.fillStyle = '#f4f7fc'
   ctx.fillText(name, n.x, n.y - 9)
-  ctx.font = '500 12px system-ui, "PingFang SC", sans-serif'
+  ctx.font = '500 11.5px system-ui, "PingFang SC", sans-serif'
   ctx.fillStyle = '#8b93a1'
   ctx.fillText(sub, n.x, n.y + 15)
 }
 
-function drawLink(from, to, t) {
-  const dx = to.x - from.x, dy = to.y - from.y
-  const off = (t * 0.0006) % 1
-  const px = from.x + dx * off, py = from.y + dy * off
-  const grad = ctx.createLinearGradient(from.x, from.y, to.x, to.y)
-  grad.addColorStop(0, 'rgba(77,124,254,0.7)')
-  grad.addColorStop(1, 'rgba(110,231,183,0.7)')
+function drawConnector(t) {
+  const x1 = DSH.x + DSH.w / 2, x2 = HA.x - HA.w / 2, y = DSH.y
+  const grad = ctx.createLinearGradient(x1, 0, x2, 0)
+  grad.addColorStop(0, 'rgba(77,124,254,0.8)')
+  grad.addColorStop(1, 'rgba(110,231,183,0.8)')
   ctx.strokeStyle = grad
-  ctx.lineWidth = 2.2
-  ctx.setLineDash([9, 7])
-  ctx.lineDashOffset = -t * 0.12
-  ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke()
-  ctx.setLineDash([])
-  const g1 = ctx.createRadialGradient(px, py, 0, px, py, 7)
-  g1.addColorStop(0, 'rgba(190, 242, 255, 0.95)')
-  g1.addColorStop(1, 'rgba(190, 242, 255, 0)')
+  ctx.lineWidth = 1.8
+  ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke()
+  // 流动光点
+  const off = (t * 0.00055) % 1
+  const px = x1 + (x2 - x1) * off
+  const g1 = ctx.createRadialGradient(px, y, 0, px, y, 6.5)
+  g1.addColorStop(0, 'rgba(200,245,255,0.95)')
+  g1.addColorStop(1, 'rgba(200,245,255,0)')
   ctx.fillStyle = g1
-  ctx.beginPath(); ctx.arc(px, py, 7, 0, TAU); ctx.fill()
-  ctx.font = '500 12px system-ui, "PingFang SC", sans-serif'
-  ctx.fillStyle = '#9aa6b8'
+  ctx.beginPath(); ctx.arc(px, y, 6.5, 0, TAU); ctx.fill()
+  // 标签
+  ctx.font = '500 11px system-ui, "PingFang SC", sans-serif'
+  ctx.fillStyle = '#8b93a1'
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'
-  ctx.fillText('一键接入', (from.x + to.x) / 2, Math.min(from.y, to.y) - 12)
+  ctx.fillText('一键接入', (x1 + x2) / 2, y - 16)
 }
 
 // ---------------------------------------------------------------------------
-// 设备：三个发光图标（无边框、无文字、无状态点）
+// 一盏发光的灯（点题：控制灯）
 // ---------------------------------------------------------------------------
-const DEVICES = [
-  { icon: '💡', x: 1120, y: 250, color: '251,191,36' },
-  { icon: '❄️', x: 1178, y: 250, color: '96,165,250' },
-  { icon: '🔒', x: 1236, y: 250, color: '110,231,183' },
-]
-
-function drawDevices(t) {
-  // HA 到设备组的柔和光束
-  const beam = ctx.createLinearGradient(HA.x + 80, HA.y, 1120, 250)
-  beam.addColorStop(0, 'rgba(110,231,183,0.35)')
-  beam.addColorStop(1, 'rgba(110,231,183,0)')
-  ctx.strokeStyle = beam
-  ctx.lineWidth = 2
-  ctx.beginPath(); ctx.moveTo(HA.x + 80, HA.y); ctx.lineTo(1090, 250); ctx.stroke()
-
-  for (let i = 0; i < DEVICES.length; i++) {
-    const d = DEVICES[i]
-    const [r, g, b] = d.color.split(',').map(Number)
-    const breathe = 0.5 + 0.5 * Math.sin(t * 0.0018 + i * 1.4)
-    const glow = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, 30)
-    glow.addColorStop(0, `rgba(${r},${g},${b},${0.30 + 0.25 * breathe})`)
-    glow.addColorStop(1, `rgba(${r},${g},${b},0)`)
-    ctx.fillStyle = glow
-    ctx.beginPath(); ctx.arc(d.x, d.y, 30, 0, TAU); ctx.fill()
-    ctx.font = '27px system-ui, "PingFang SC", sans-serif'
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    ctx.fillText(d.icon, d.x, d.y + 1)
-  }
+function drawLight(t) {
+  const x = 1195, y = 250
+  const breathe = 0.5 + 0.5 * Math.sin(t * 0.0016)
+  // 巨大柔和光晕
+  const halo = ctx.createRadialGradient(x, y, 0, x, y, 150)
+  halo.addColorStop(0, `rgba(251,191,36,${0.20 + 0.08 * breathe})`)
+  halo.addColorStop(0.4, 'rgba(251,191,36,0.06)')
+  halo.addColorStop(1, 'rgba(251,191,36,0)')
+  ctx.fillStyle = halo
+  ctx.beginPath(); ctx.arc(x, y, 150, 0, TAU); ctx.fill()
+  // 半环（优雅的靶环）
+  ctx.beginPath(); ctx.arc(x, y, 46, Math.PI * 0.9, Math.PI * 1.85)
+  ctx.strokeStyle = `rgba(251,191,36,${0.45 + 0.2 * breathe})`
+  ctx.lineWidth = 1.6
+  ctx.stroke()
+  // 图标
+  ctx.font = '40px system-ui, "PingFang SC", sans-serif'
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.fillText('💡', x, y + 1)
 }
 
 // ---------------------------------------------------------------------------
@@ -180,11 +192,11 @@ const start = performance.now()
 function frame(now) {
   const t = now - start
   ctx.clearRect(0, 0, W, H)
-  drawParticles(t)
-  drawLink(DSH, HA, t)
-  drawNode(DSH, '77,124,254', 'DSH', 'DeepSeek Harness', t)
-  drawNode(HA, '110,231,183', 'HA', 'Home Assistant', t)
-  drawDevices(t)
+  drawBackground()
+  drawConnector(t)
+  drawChip(DSH, '77,124,254', 'DSH', 'DeepSeek Harness', t)
+  drawChip(HA, '110,231,183', 'HA', 'Home Assistant', t)
+  drawLight(t)
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)

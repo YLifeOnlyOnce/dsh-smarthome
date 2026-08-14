@@ -343,6 +343,60 @@ export function registerTools(
   }))
 
   ctx.tools.register(defineTool({
+    name: 'ha_list_devices',
+    description:
+      'List Home Assistant devices via the WebSocket device registry, optionally ' +
+      'filtered by text or by area. Use the returned device id with ha_call_service ' +
+      '(deviceId) to control a physical device directly.',
+    parameters: {
+      query: { type: 'string', description: 'Text search over device name or id' },
+      areaId: { type: 'string', description: 'Only devices in this area (see ha_list_areas)' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          count: { type: 'number' },
+          devices: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: true,
+              properties: {
+                id: { type: 'string' },
+                name: { type: 'string' },
+                area_id: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      render: (_args, value) => {
+        const devices = value.devices as { id: string; name: string; area_id?: string }[]
+        return text(devices.length
+          ? devices.map(d => `- ${d.id}: ${d.name}${d.area_id ? ` (area: ${d.area_id})` : ''}`).join('\n')
+          : '(no devices)')
+      },
+    },
+    async execute(args) {
+      const query = (args.query ?? '').toLowerCase()
+      const devices = (await ws.listDevices())
+        .filter(d => !args.areaId || d.area_id === args.areaId)
+        .filter(d => !query ||
+          d.id.toLowerCase().includes(query) ||
+          d.name.toLowerCase().includes(query))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(d => ({
+          id: d.id,
+          name: d.name,
+          ...(d.area_id ? { area_id: d.area_id } : {}),
+        }))
+      return { count: devices.length, devices }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
     name: 'ha_events',
     description:
       'Return recent real-time state changes buffered from the Home Assistant WebSocket ' +

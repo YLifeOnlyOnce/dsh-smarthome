@@ -67,6 +67,7 @@
 | `ha_health` | 验证连接；返回实例名、版本、时区、WebSocket 状态 | 只读 |
 | `ha_list_entities` | 列出实体，按 domain（`light`、`switch`、`sensor`…）和文本过滤 | 只读 |
 | `ha_list_areas` | 通过 WebSocket 列出房间（区域），如 `living_room` | 只读 |
+| `ha_list_devices` | 通过 WebSocket 设备注册表列出物理设备 | 只读 |
 | `ha_get_state` | 单个实体的完整状态与属性 | 只读 |
 | `ha_history` | 一段时间内的状态变化时间线 | 只读 |
 | `ha_events` | WebSocket 缓冲的最近实时状态变化 | 只读 |
@@ -196,6 +197,12 @@ node scripts/capture-demo.mjs   # 重新生成 README 截图
 ```
 
 ## 📋 兼容性
+
+### 真实 Home Assistant 兼容性
+
+- 使用 **v1 REST API**（`/api/states`、`/api/services/…`、`/api/history/…`、`/api/template`、`/api/config`）和 **WebSocket API**（`/api/websocket`：认证、`subscribe_events`、`config/area_registry/list`、`config/device_registry/list`）——与官方 HA 前端同协议。
+- 需要**长期访问令牌**（个人资料 → 安全 → 长期访问令牌）。
+- 注意事项：不支持自签名 HTTPS 证书（请用 `http://` 或有效证书）；受限制的令牌（无法调用服务）会导致 `ha_call_service` 失败。
 
 DeepSeek Harness 处于 developer preview，迭代很快。本插件已针对 npm 发布的 `@deepseek-ai/dsh@0.1.0-rc.6` 验证；如果 harness 更新导致不兼容，请提 issue。
 

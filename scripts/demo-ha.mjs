@@ -51,6 +51,24 @@ const AREA_ENTITIES = {
   kitchen: [],
 }
 
+/** Device registry (WebSocket `config/device_registry/list`) + device → entity map. */
+const DEVICE_REGISTRY = [
+  { id: 'dev_living_light', name: 'Living Room Light', area_id: 'living_room' },
+  { id: 'dev_bedroom_light', name: 'Bedroom Light', area_id: 'bedroom' },
+  { id: 'dev_thermostat', name: 'Thermostat', area_id: 'living_room' },
+  { id: 'dev_tv', name: 'TV', area_id: 'living_room' },
+  { id: 'dev_boiler', name: 'Boiler', area_id: null },
+  { id: 'dev_camera', name: 'Front Door Camera', area_id: null },
+]
+const DEVICE_ENTITIES = {
+  dev_living_light: ['light.living_room'],
+  dev_bedroom_light: ['light.bedroom'],
+  dev_thermostat: ['climate.thermostat'],
+  dev_tv: ['media_player.tv'],
+  dev_boiler: ['switch.boiler'],
+  dev_camera: ['camera.front_door'],
+}
+
 /** WebSocket subscribers waiting for state_changed events. */
 const wsSubscribers = new Set()
 
@@ -293,7 +311,7 @@ const server = createServer((req, res) => {
       if (Array.isArray(data.entity_id)) targets = data.entity_id
       else if (typeof data.entity_id === 'string') targets = [data.entity_id]
       else if (typeof data.area_id === 'string') targets = AREA_ENTITIES[data.area_id] ?? []
-      else if (typeof data.device_id === 'string') targets = [...entities.keys()].filter(id => id.includes(data.device_id))
+      else if (typeof data.device_id === 'string') targets = DEVICE_ENTITIES[data.device_id] ?? []
       else targets = [...entities.keys()]
       const fn = services[domain]?.[service]
       if (!fn) {
@@ -396,6 +414,10 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'config/area_registry/list') {
       return send({ id: msg.id, type: 'result', success: true, result: AREAS })
+    }
+
+    if (msg.type === 'config/device_registry/list') {
+      return send({ id: msg.id, type: 'result', success: true, result: DEVICE_REGISTRY })
     }
 
     if (msg.type === 'subscribe_events') {

@@ -185,6 +185,13 @@ export interface HaArea {
   name: string
 }
 
+/** One device from the HA device registry (WebSocket `config/device_registry/list`). */
+export interface HaDevice {
+  id: string
+  name: string
+  area_id?: string | null
+}
+
 /** One `state_changed` event, normalized for the model. */
 export interface HaStateChange {
   entity_id: string
@@ -374,6 +381,18 @@ export class HomeAssistantWsClient {
   /** Query the area registry over the socket (HA WebSocket API). */
   listAreas(): Promise<HaArea[]> {
     return this.request<HaArea[]>('config/area_registry/list')
+  }
+
+  /** Query the device registry over the socket (HA WebSocket API). */
+  async listDevices(): Promise<HaDevice[]> {
+    const devices = await this.request<Array<{ id: string; name?: string | null; name_by_user?: string | null; area_id?: string | null }>>(
+      'config/device_registry/list',
+    )
+    return devices.map(d => ({
+      id: d.id,
+      name: d.name_by_user ?? d.name ?? d.id,
+      ...(d.area_id ? { area_id: d.area_id } : {}),
+    }))
   }
 
   private request<T>(type: string, timeoutMs = 8000): Promise<T> {

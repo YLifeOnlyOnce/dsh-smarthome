@@ -67,6 +67,7 @@ Talk to your home the way you talk to an assistant — every write goes through 
 | `ha_health` | Verify the connection; return instance name, version, timezone, WebSocket status | read |
 | `ha_list_entities` | List entities, filter by domain (`light`, `switch`, `sensor`…) and text | read |
 | `ha_list_areas` | List rooms (areas) via the WebSocket API, e.g. `living_room` | read |
+| `ha_list_devices` | List physical devices via the WebSocket device registry | read |
 | `ha_get_state` | Full state + attributes of one entity | read |
 | `ha_history` | State-change timeline over a time window | read |
 | `ha_events` | Recent real-time state changes buffered from the WebSocket | read |
@@ -196,6 +197,12 @@ node scripts/capture-demo.mjs   # regenerate the README screenshots
 ```
 
 ## 📋 Compatibility
+
+### Real Home Assistant compatibility
+
+- Uses the **v1 REST API** (`/api/states`, `/api/services/…`, `/api/history/…`, `/api/template`, `/api/config`) and the **WebSocket API** (`/api/websocket`: auth, `subscribe_events`, `config/area_registry/list`, `config/device_registry/list`) — the same protocols the official HA frontend speaks.
+- Requires a **long-lived access token** (Profile → Security → Long-lived access tokens).
+- Caveats: self-signed HTTPS certificates are not supported (use `http://` or a valid cert); a restricted token that cannot call services will fail `ha_call_service`.
 
 DeepSeek Harness is in developer preview and changes fast. This plugin is verified against the published `@deepseek-ai/dsh@0.1.0-rc.6` line; if a harness update breaks it, please open an issue.
 

@@ -59,7 +59,7 @@ afterAll(() => {
 })
 
 describe('dsh-smarthome in the real tool runtime', () => {
-  it('registers all ten ha_* tools', async () => {
+  it('registers all eleven ha_* tools', async () => {
     const ctx = await setup()
     const names = ctx.tools.schemas().map(s => s.name).sort()
     expect(names).toEqual([
@@ -70,6 +70,7 @@ describe('dsh-smarthome in the real tool runtime', () => {
       'ha_health',
       'ha_history',
       'ha_list_areas',
+      'ha_list_devices',
       'ha_list_entities',
       'ha_list_scenes',
       'ha_render_template',
@@ -533,5 +534,55 @@ describe('WebSocket-backed tools against the demo emulator', () => {
     expect((result.meta as { kind?: string }).kind).toBe('smarthome-dashboard')
     expect((result.meta as { entities: { entity_id: string }[] }).entities.length)
       .toBe(value.entities.length)
+  }, 20000)
+
+  it('lists devices from the registry and targets one via device_id', async () => {
+    const ctx = await setup({
+      baseUrl: `http://127.0.0.1:${emuPort}`,
+      token: 'demo-token',
+      requireApproval: false,
+    })
+    await waitForWs(ctx, 'connected')
+
+    // 1. ha_list_devices reads the WS device registry.
+    const list = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-devices'),
+      name: 'ha_list_devices',
+      arguments: {},
+    })
+    expect(list.isError).toBe(false)
+    const devices = (list.value as { devices: { id: string; name: string; area_id?: string }[] }).devices
+    const light = devices.find(d => d.id === 'dev_living_light')
+    expect(light).toBeDefined()
+    expect(light!.name).toBe('Living Room Light')
+    expect(light!.area_id).toBe('living_room')
+
+    // 2. Filter by area.
+    const bedroom = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-devices-area'),
+      name: 'ha_list_devices',
+      arguments: { areaId: 'bedroom' },
+    })
+    const bedroomDevices = (bedroom.value as { devices: { id: string }[] }).devices
+    expect(bedroomDevices.map(d => d.id)).toEqual(['dev_bedroom_light'])
+
+    // 3. Device-targeted service call: the emulator resolves device → entities.
+    await ctx.tools.execute({
+      signal,
+      callId: CallId('t-dev-on'),
+      name: 'ha_call_service',
+      arguments: { domain: 'light', service: 'turn_on', deviceId: 'dev_living_light', data: { brightness: 90 } },
+    })
+    const state = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-dev-state'),
+      name: 'ha_get_state',
+      arguments: { entityId: 'light.living_room' },
+    })
+    const s = state.value as { state?: string; attributes?: { brightness?: number } }
+    expect(s.state).toBe('on')
+    expect(s.attributes?.brightness).toBe(90)
   }, 20000)
 })

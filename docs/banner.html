@@ -10,18 +10,22 @@
   .overlay {
     position: absolute; inset: 0; z-index: 2; pointer-events: none;
     font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-    padding: 118px 0 0 64px;
+    padding: 108px 0 0 60px;
   }
   .title {
-    font-size: 68px; font-weight: 800; letter-spacing: -1px; color: #f2f5fa;
+    font-size: 58px; font-weight: 800; letter-spacing: -1px; color: #f2f5fa;
     text-shadow: 0 0 18px rgba(77, 124, 254, .55), 0 0 46px rgba(77, 124, 254, .28);
   }
   .title .dot { color: #6ee7b7; text-shadow: 0 0 14px rgba(110, 231, 183, .8); }
-  .zh { margin-top: 12px; font-size: 27px; color: #cfd8e6; font-weight: 600; }
-  .en { margin-top: 6px; font-size: 17px; color: #6d7a90; letter-spacing: .3px; }
-  .chips { margin-top: 18px; display: flex; gap: 10px; }
+  .zh1 { margin-top: 14px; font-size: 29px; color: #cfd8e6; font-weight: 700; }
+  .zh2 {
+    margin-top: 4px; font-size: 29px; font-weight: 800; color: #8fb2ff;
+    text-shadow: 0 0 16px rgba(77, 124, 254, .45);
+  }
+  .en { margin-top: 8px; font-size: 15px; color: #6d7a90; letter-spacing: .3px; }
+  .chips { margin-top: 16px; display: flex; gap: 10px; }
   .chip {
-    font-size: 15px; padding: 7px 16px; border-radius: 99px; color: #e6e9ee;
+    font-size: 13px; padding: 6px 14px; border-radius: 99px; color: #e6e9ee;
     background: rgba(22, 25, 30, .82); border: 1px solid #2a3140;
     box-shadow: 0 0 14px rgba(77, 124, 254, .18);
   }
@@ -33,8 +37,9 @@
 <canvas id="scene"></canvas>
 <div class="overlay">
   <div class="title">dsh-smarthome<span class="dot">.</span></div>
-  <div class="zh">一句话，控制整个家</div>
-  <div class="en">Directly control Home Assistant through DeepSeek Harness</div>
+  <div class="zh1">一个插件接入 Home Assistant</div>
+  <div class="zh2">完成智能家居全闭环</div>
+  <div class="en">One plugin · Home Assistant · the full smart-home loop</div>
   <div class="chips">
     <span class="chip hot">⚡ 一键接入 dsh plugin add</span>
     <span class="chip">🔒 审批保护 · 实时状态</span>
@@ -91,8 +96,8 @@ function drawParticles(t) {
 // ---------------------------------------------------------------------------
 // 链路：DSH → HA → 设备
 // ---------------------------------------------------------------------------
-const DSH = { x: 540, y: 250, w: 170, h: 78 }
-const HA = { x: 800, y: 250, w: 170, h: 78 }
+const DSH = { x: 640, y: 250, w: 170, h: 78 }
+const HA = { x: 900, y: 250, w: 170, h: 78 }
 
 function roundRect(x, y, w, h, r) {
   ctx.beginPath()

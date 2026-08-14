@@ -58,7 +58,15 @@ Talk to your home the way you talk to an assistant — every write goes through 
 - **Always current**: state changes reach the agent in real time over WebSocket, so it never "thinks" the light is still on when you switched it off.
 - **Lightweight**: zero runtime dependencies — plain REST + Node's built-in WebSocket. No MQTT broker, no extra daemon.
 - **Try it without Home Assistant**: the repo ships a demo emulator + interactive demo page — 5 minutes to a full feel of the plugin.
-- **Engineered, not hacked together**: 24 tests including a full **real agent-loop end-to-end** suite, strict TypeScript, CI.
+- **Engineered, not hacked together**: 36 tests including a full **real agent-loop end-to-end** suite, strict TypeScript, CI.
+
+## 💻 Your computer is the control center
+
+dsh-smarthome runs right where dsh runs — **on your computer**. No phone app, no separate bridge, no context switch:
+
+- **👀 Monitor while you work** — the dashboard card (`ha_dashboard`) and the real-time event feed (`ha_events`) keep the whole house visible next to your editor: what's on, what just changed.
+- **🎙️ Control by voice** — add a community voice plugin to dsh (search the [`dsh-plugin` topic](https://github.com/topics/dsh-plugin) for *voice*; e.g. [dsh-voice](https://github.com/zhuiyueya/dsh-voice) does zero-key speech input + read-aloud, `dsh-voice-chat` does real-time speech) and just **speak**: *"turn the bedroom light to 200"* → approval → done. Hands-free while you keep typing.
+- **🖥️ Everything in one window** — code, watch the house, and control devices without ever leaving dsh. Every state-changing call still waits for your approval.
 
 ## 🛠 Features
 

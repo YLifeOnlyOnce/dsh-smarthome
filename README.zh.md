@@ -58,7 +58,15 @@
 - **状态永远新鲜**：WebSocket 实时推送，agent 不会"以为"灯还开着
 - **轻量**：零运行时依赖——纯 REST + Node 内置 WebSocket，没有 MQTT、没有额外守护进程
 - **没有 Home Assistant 也能玩**：自带演示模拟器 + 交互演示页，5 分钟完整感受
-- **工程化而非拼凑**：24 个测试（含完整**真实 agent-loop 端到端**）、严格 TypeScript、CI
+- **工程化而非拼凑**：36 个测试（含完整**真实 agent-loop 端到端**）、严格 TypeScript、CI
+
+## 💻 你的电脑就是控制中心
+
+dsh-smarthome 就装在跑 dsh 的**这台电脑**上——不用手机 App、不用额外网关、不用切换上下文：
+
+- **👀 边工作边监控** —— `ha_dashboard` 仪表盘卡片 + `ha_events` 实时事件，全屋状态一直显示在编辑器旁边：什么开着、刚发生了什么，一目了然
+- **🎙️ 语音控制** —— 再给 dsh 接一个社区语音插件（在 [`dsh-plugin` topic](https://github.com/topics/dsh-plugin) 里搜 *voice*；如 [dsh-voice](https://github.com/zhuiyueya/dsh-voice) 零 key 语音输入+朗读、`dsh-voice-chat` 实时语音对话），直接**开口说话**：「把卧室灯调到 200」→ 审批 → 完成——打字的同时动动嘴就控制全家
+- **🖥️ 一个窗口全搞定** —— 写代码、看家、控设备，全程不离开 dsh。所有改变状态的调用依然要你批准
 
 ## 🛠 功能
 

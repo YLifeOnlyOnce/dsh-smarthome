@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dsh-smarthome · 交互式演示</title>
+<style>
+  :root {
+    --bg: #0e1013; --panel: #16191e; --panel2: #1c2026; --border: #262b33;
+    --text: #e6e9ee; --muted: #8b93a1; --accent: #4d7cfe; --accent2: #6ee7b7;
+    --danger: #f87171; --warn: #fbbf24;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; padding: 24px; }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  header h1 { font-size: 20px; font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); display: inline-block; }
+  .dot.online { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+  .tag { font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 99px; padding: 2px 10px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+  .panel > .ph { padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+  .chat { padding: 14px; display: flex; flex-direction: column; gap: 12px; min-height: 520px; max-height: 640px; overflow-y: auto; }
+  .msg { display: flex; gap: 10px; }
+  .msg .avatar { width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .u .avatar { background: #2a3242; }
+  .a .avatar { background: linear-gradient(135deg, #1e3a8a, #4d7cfe); }
+  .bubble { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; max-width: 86%; white-space: pre-wrap; }
+  .u .bubble { background: #22293a; }
+  .card { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #12151a; }
+  .card .ch { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #1a1e25; border-bottom: 1px solid var(--border); font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+  .card .ch .icon { color: var(--accent); }
+  .card .cb { padding: 10px 12px; font-size: 13px; white-space: pre-wrap; }
+  .card .cb.ok { color: var(--accent2); }
+  .card .cb.err { color: var(--danger); }
+  .card.pending .cb { color: var(--muted); }
+  .card .kbd { color: var(--warn); }
+  .btn { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; }
+  .btn:hover { filter: brightness(1.1); }
+  .btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .console { padding: 14px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .out { background: #101318; border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; min-height: 90px; max-height: 260px; overflow-y: auto; white-space: pre-wrap; color: var(--muted); }
+  .out b { color: var(--text); }
+  .states { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .st { background: #101318; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  .st .id { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--muted); }
+  .st .val { font-size: 13px; margin-top: 2px; }
+  .st.on .val { color: var(--accent2); }
+  .st.off .val { color: var(--muted); }
+  .modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .modal-back.show { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; width: 420px; max-width: 92vw; padding: 18px; }
+  .modal h3 { font-size: 15px; margin-bottom: 6px; }
+  .modal .cmd { font-family: ui-monospace, Menlo, monospace; background: #101318; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin: 10px 0; font-size: 13px; }
+  .modal .hint { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+  .modal .mbtns { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn.danger { background: var(--danger); }
+  .foot { margin-top: 16px; color: var(--muted); font-size: 12px; text-align: center; }
+  .foot code { background: var(--panel2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🐋 dsh-smarthome <span class="tag">交互式演示</span></h1>
+    <span id="liveDot" class="dot"></span><span id="liveTxt" style="font-size:13px;color:var(--muted)">模拟器未连接</span>
+  </header>
+
+  <div class="cols">
+    <!-- 左：模拟对话 -->
+    <div class="panel">
+      <div class="ph"><span>模拟 DSH 对话（演示效果）</span><button id="playBtn" class="btn">▶ 播放演示</button></div>
+      <div id="chat" class="chat"></div>
+    </div>
+
+    <!-- 右：实时控制台 -->
+    <div class="panel">
+      <div class="ph"><span>实时控制台 · 连接本地模拟器</span><button id="refreshBtn" class="btn ghost">刷新状态</button></div>
+      <div class="console">
+        <div class="row">
+          <button class="btn ghost" data-act="health">检查连接</button>
+          <button class="btn ghost" data-act="list">列出实体</button>
+          <button class="btn ghost" data-act="state">查看客厅灯</button>
+          <button class="btn" data-act="turnon">开卧室灯 (200)</button>
+          <button class="btn danger" data-act="turnoff">关卧室灯</button>
+        </div>
+        <div><b style="font-size:13px">设备状态</b></div>
+        <div id="states" class="states"></div>
+        <div><b style="font-size:13px">输出</b></div>
+        <div id="out" class="out">点击上方按钮调用模拟器 API。模拟器未运行时，先执行：<br><br>  cd dsh-smarthome<br>  pnpm demo:ha</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">模拟器：<code>pnpm demo:ha</code>（http://127.0.0.1:8124）· 任意 Bearer token 可用，约定 <code>demo-token</code></div>
+</div>
+
+<!-- 审批弹窗 -->
+<div id="modalBack" class="modal-back">
+  <div class="modal">
+    <h3>⚠️ 需要批准</h3>
+    <div class="hint">dsh-smarthome 请求调用 Home Assistant 服务（工具 <code>ha_call_service</code>）</div>
+    <div id="modalCmd" class="cmd"></div>
+    <div class="mbtns">
+      <button id="denyBtn" class="btn danger">拒绝</button>
+      <button id="approveBtn" class="btn">批准并执行</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// 演示数据（与 scripts/demo-ha.mjs 的演示小家一致）
+// ---------------------------------------------------------------------------
+const DEMO_STATES = {
+  'light.living_room': { state: 'on', attrs: { friendly_name: '客厅灯', brightness: 128 } },
+  'light.bedroom':     { state: 'off', attrs: { friendly_name: '卧室灯' } },
+  'switch.boiler':     { state: 'off', attrs: { friendly_name: '热水器' } },
+  'sensor.temperature':{ state: '22.5', attrs: { friendly_name: '客厅温度', unit_of_measurement: '°C' } },
+  'sensor.humidity':   { state: '48', attrs: { friendly_name: '客厅湿度', unit_of_measurement: '%' } },
+  'sensor.power':      { state: '320', attrs: { friendly_name: '全屋功率', unit_of_measurement: 'W' } },
+  'climate.thermostat':{ state: 'heat', attrs: { friendly_name: '中央空调', temperature: 21 } },
+  'media_player.tv':   { state: 'off', attrs: { friendly_name: '电视' } },
+};
+const BASE = 'http://127.0.0.1:8124';
+const TOKEN = 'demo-token';
+
+// ---------------------------------------------------------------------------
+// 工具：渲染消息 / 卡片 / 状态面板
+// ---------------------------------------------------------------------------
+const chat = document.getElementById('chat');
+
+function el(tag, cls, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html !== undefined) e.innerHTML = html;
+  return e;
+}
+function userMsg(text) {
+  const m = el('div', 'msg u');
+  m.append(el('div', 'avatar', '🧑'), el('div', 'bubble', escapeHtml(text)));
+  chat.append(m); scrollChat();
+}
+function toolCard(title, body, cls, icon = '🔧') {
+  const c = el('div', 'card ' + (cls || ''));
+  c.append(el('div', 'ch', `<span class="icon">${icon}</span><span>${escapeHtml(title)}</span>`));
+  c.append(el('div', 'cb ' + (cls || ''), escapeHtml(body)));
+  chat.append(c); scrollChat();
+  return c;
+}
+function agentNote(text) {
+  const m = el('div', 'msg a');
+  m.append(el('div', 'avatar', '🐋'), el('div', 'bubble', escapeHtml(text)));
+  chat.append(m); scrollChat();
+}
+function scrollChat() { chat.scrollTop = chat.scrollHeight; }
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function renderStates(map) {
+  const box = document.getElementById('states');
+  box.innerHTML = '';
+  for (const [id, s] of Object.entries(map)) {
+    const name = s.attrs.friendly_name || id;
+    const unit = s.attrs.unit_of_measurement || '';
+    const extra = s.attrs.brightness !== undefined ? ` · ${s.attrs.brightness} 亮度` : '';
+    const st = el('div', 'st ' + (s.state === 'on' ? 'on' : 'off'));
+    st.append(el('div', 'id', escapeHtml(id)));
+    st.append(el('div', 'val', `${escapeHtml(name)}: <b>${escapeHtml(s.state)}</b>${unit ? ' ' + escapeHtml(unit) : ''}${escapeHtml(extra)}`));
+    box.append(st);
+  }
+}
+renderStates(DEMO_STATES);
+
+// ---------------------------------------------------------------------------
+// 审批弹窗
+// ---------------------------------------------------------------------------
+const modalBack = document.getElementById('modalBack');
+const modalCmd = document.getElementById('modalCmd');
+let pendingApproval = null;
+
+function askApproval(cmdText) {
+  return new Promise(resolve => {
+    pendingApproval = resolve;
+    modalCmd.textContent = cmdText;
+    modalBack.classList.add('show');
+  });
+}
+document.getElementById('approveBtn').onclick = () => {
+  modalBack.classList.remove('show');
+  if (pendingApproval) { pendingApproval(true); pendingApproval = null; }
+};
+document.getElementById('denyBtn').onclick = () => {
+  modalBack.classList.remove('show');
+  if (pendingApproval) { pendingApproval(false); pendingApproval = null; }
+};
+
+// ---------------------------------------------------------------------------
+// 脚本化演示
+// ---------------------------------------------------------------------------
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let playing = false;
+
+async function playDemo() {
+  if (playing) return;
+  playing = true;
+  document.getElementById('playBtn').disabled = true;
+  chat.innerHTML = '';
+
+  agentNote('你好！我是配置了 dsh-smarthome 的 DeepSeek Harness agent，可以控制你的 Home Assistant。');
+  await sleep(600);
+
+  userMsg('检查 Home Assistant 是否在线，然后列出所有灯。');
+  await sleep(500);
+  const healthCard = toolCard('ha_health', '调用中…', 'pending');
+  await sleep(900);
+  healthCard.className = 'card';
+  healthCard.querySelector('.cb').textContent =
+    'Home Assistant reachable: "Demo Home" (version 2026.8.0-demo, timezone Asia/Shanghai)';
+  healthCard.querySelector('.cb').classList.add('ok');
+  await sleep(700);
+  const listCard = toolCard('ha_list_entities', '调用中…', 'pending');
+  await sleep(900);
+  listCard.className = 'card';
+  listCard.querySelector('.cb').textContent =
+    '2 entities\n- light.living_room: on (Living Room Light)\n- light.bedroom: off (Bedroom Light)';
+  listCard.querySelector('.cb').classList.add('ok');
+  await sleep(700);
+  agentNote('找到了 2 盏灯：客厅灯（开）和卧室灯（关）。');
+
+  await sleep(800);
+  userMsg('把卧室灯调到 200 亮度。');
+  await sleep(500);
+  const callCard = toolCard('ha_call_service', 'light.turn_on · 等待批准…', 'pending');
+  const approved = await askApproval('light.turn_on\n目标: light.bedroom\n数据: {"brightness": 200}');
+  if (approved) {
+    callCard.querySelector('.cb').textContent = '✅ Service call completed\nCalled light.turn_on on light.bedroom with {"brightness":200}.';
+    callCard.querySelector('.cb').classList.add('ok');
+    DEMO_STATES['light.bedroom'] = { state: 'on', attrs: { friendly_name: '卧室灯', brightness: 200 } };
+    renderStates(DEMO_STATES);
+    await sleep(600);
+    const stateCard = toolCard('ha_get_state', '调用中…', 'pending');
+    await sleep(700);
+    stateCard.className = 'card';
+    stateCard.querySelector('.cb').textContent =
+      'light.bedroom: on\n{\n  "friendly_name": "Bedroom Light",\n  "brightness": 200\n}';
+    stateCard.querySelector('.cb').classList.add('ok');
+    agentNote('✅ 已批准并执行。卧室灯现在是 on，亮度 200——右侧「设备状态」也已更新。');
+  } else {
+    callCard.querySelector('.cb').textContent = '❌ 已被拒绝：dsh-smarthome: "ha_call_service" changes Home Assistant state — approve to continue.';
+    callCard.querySelector('.cb').classList.add('err');
+    agentNote('你拒绝了这次调用，我没有对 Home Assistant 做任何更改。');
+  }
+  playing = false;
+  document.getElementById('playBtn').disabled = false;
+}
+document.getElementById('playBtn').onclick = playDemo;
+
+// ---------------------------------------------------------------------------
+// 实时控制台（直连模拟器）
+// ---------------------------------------------------------------------------
+const out = document.getElementById('out');
+function logOut(html) { out.innerHTML = html; }
+function setLive(online) {
+  document.getElementById('liveDot').className = 'dot' + (online ? ' online' : '');
+  document.getElementById('liveTxt').textContent = online ? '模拟器已连接 ✓' : '模拟器未连接';
+}
+async function api(path, init = {}) {
+  const res = await fetch(BASE + path, {
+    ...init,
+    headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json', ...(init.headers || {}) },
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+async function checkHealth() {
+  try {
+    await api('/api/');
+    const cfg = await api('/api/config');
+    setLive(true);
+    logOut(`<b>✅ Home Assistant reachable</b>\n名称: ${cfg.location_name}\n版本: ${cfg.version}\n时区: ${cfg.time_zone}`);
+  } catch (e) {
+    setLive(false);
+    logOut(`<b style="color:var(--danger)">连接失败</b>\n${escapeHtml(String(e))}\n\n模拟器未运行？请执行：\n  cd dsh-smarthome && pnpm demo:ha`);
+  }
+}
+async function listEntities() {
+  try {
+    const s = await api('/api/states');
+    setLive(true);
+    logOut(s.map(x => `- ${x.entity_id}: ${x.state} (${x.attributes.friendly_name || ''})`).join('\n'));
+  } catch (e) { setLive(false); logOut(escapeHtml(String(e))); }
+}
+async function getState(id) {
+  try {
+    const s = await api('/api/states/' + encodeURIComponent(id));
+    setLive(true);
+    logOut(`${s.entity_id}: ${s.state}\n${JSON.stringify(s.attributes, null, 2)}`);
+  } catch (e) { setLive(false); logOut(escapeHtml(String(e))); }
+}
+async function callService(domain, service, body) {
+  try {
+    await api(`/api/services/${domain}/${service}`, { method: 'POST', body: JSON.stringify(body) });
+    setLive(true);
+    const s = await api('/api/states/' + encodeURIComponent(body.entity_id[0]));
+    DEMO_STATES[s.entity_id] = { state: s.state, attrs: s.attributes };
+    renderStates(DEMO_STATES);
+    logOut(`✅ ${domain}.${service} 完成\n${s.entity_id}: ${s.state}${s.attributes.brightness !== undefined ? ' (brightness ' + s.attributes.brightness + ')' : ''}`);
+  } catch (e) { setLive(false); logOut(escapeHtml(String(e))); }
+}
+document.querySelectorAll('.console [data-act]').forEach(btn => {
+  btn.onclick = async () => {
+    const act = btn.dataset.act;
+    if (act === 'health') return checkHealth();
+    if (act === 'list') return listEntities();
+    if (act === 'state') return getState('light.living_room');
+    if (act === 'turnon' || act === 'turnoff') {
+      const service = act === 'turnon' ? 'turn_on' : 'turn_off';
+      const approved = await askApproval(`light.${service}\n目标: light.bedroom${act === 'turnon' ? '\n数据: {"brightness": 200}' : ''}`);
+      if (!approved) { logOut('❌ 已拒绝'); return; }
+      return callService('light', service, { entity_id: ['light.bedroom'], ...(act === 'turnon' ? { brightness: 200 } : {}) });
+    }
+  };
+});
+document.getElementById('refreshBtn').onclick = () => listEntities();
+
+// 页面加载时探测一次模拟器
+checkHealth();
+</script>
+</body>
+</html>

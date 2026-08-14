@@ -76,6 +76,8 @@ HOME_ASSISTANT_TOKEN=demo-token dsh --profile web
 
 The emulator also drifts the temperature sensor every few seconds, so `ha_history` always has fresh data. Any `Bearer` token works; `demo-token` is just the convention.
 
+**Want to preview the UI without running dsh at all?** Open [`docs/demo.html`](docs/demo.html) in a browser: it replays a simulated DSH conversation (tool cards + the approval dialog), and its live console talks to the emulator directly when it's running.
+
 ## Configuration
 
 Create a long-lived access token in Home Assistant: **Profile → Security → Long-lived access tokens**.

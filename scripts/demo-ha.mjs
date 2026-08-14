@@ -137,6 +137,15 @@ const server = createServer((req, res) => {
   const url = new URL(req.url ?? '/', `http://127.0.0.1:${PORT}`)
   const path = url.pathname
 
+  // CORS for the interactive demo page (docs/demo.html) opened from any origin.
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204)
+    return res.end()
+  }
+
   if (!authorized(req)) {
     return sendJson(res, 401, { message: 'Missing or invalid authorization. Expected "Bearer <token>".' })
   }

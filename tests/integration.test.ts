@@ -239,6 +239,62 @@ describe('dsh-smarthome in the real tool runtime', () => {
       mock.server.close()
     }
   })
+
+  it('ha_call_service data can never override the computed target', async () => {
+    const calls: Array<{ domain: string; service: string; body: unknown }> = []
+    const mock = await startMockHa({ serviceCalls: calls })
+    try {
+      const ctx = await setup({
+        baseUrl: `http://127.0.0.1:${mock.port}`,
+        requireApproval: false,
+        wsEnabled: false,
+      })
+      const result = await ctx.tools.execute({
+        signal,
+        callId: CallId('t-data-safety'),
+        name: 'ha_call_service',
+        arguments: {
+          domain: 'light',
+          service: 'turn_on',
+          entityId: 'light.living_room',
+          // A mistaken/hostile model could put a target key inside `data`;
+          // it must not retarget the call.
+          data: { entity_id: 'switch.boiler', brightness: 128 },
+        },
+      })
+      expect(result.isError).toBe(false)
+      expect(calls[0]!.body).toEqual({ entity_id: ['light.living_room'], brightness: 128 })
+      expect((result.value as { data: { entity_id?: unknown } }).data.entity_id).toBeUndefined()
+    } finally {
+      mock.server.close()
+    }
+  })
+
+  it('ha_render_template succeeds when approval is off', async () => {
+    const ctx = await setup({ requireApproval: false })
+    const result = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-tpl-ok'),
+      name: 'ha_render_template',
+      arguments: { template: "{{ states('sensor.temperature') }}" },
+    })
+    expect(result.isError).toBe(false)
+    expect((result.value as { rendered: string }).rendered).toContain('sensor.temperature')
+  })
+
+  it('ha_history returns the state-change timeline', async () => {
+    const ctx = await setup()
+    const result = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-history'),
+      name: 'ha_history',
+      arguments: { entityId: 'light.living_room' },
+    })
+    expect(result.isError).toBe(false)
+    const events = (result.value as { events: { entity_id: string }[] }).events
+    expect(events.length).toBeGreaterThan(0)
+    expect(events[0]!.entity_id).toBe('light.living_room')
+  })
 })
 
 describe('WebSocket-backed tools against the demo emulator', () => {

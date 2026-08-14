@@ -14,18 +14,6 @@ function text(value: string): { type: 'text'; text: string }[] {
   return [{ type: 'text', text: value }]
 }
 
-/** Summarize one state without dumping the whole attribute map. */
-function summarizeState(state: HaState): string {
-  const attrs = state.attributes
-  const bits: string[] = []
-  for (const key of ['friendly_name', 'unit_of_measurement']) {
-    const v = attrs[key]
-    if (typeof v === 'string') bits.push(`${key}=${v}`)
-  }
-  const extra = bits.length ? ` (${bits.join(', ')})` : ''
-  return `${state.entity_id}: ${state.state}${extra}`
-}
-
 /** Cap rendered text at a sane size so huge attribute maps cannot flood context. */
 function truncate(value: string, max = 4000): string {
   return value.length > max ? `${value.slice(0, max)}…[truncated]` : value
@@ -292,16 +280,23 @@ export function registerTools(
         : (args.areaId
             ? { area_id: args.areaId }
             : (args.deviceId ? { device_id: args.deviceId } : undefined))
+      // Target keys in `data` must never silently override the computed
+      // target (e.g. a model passing data.entity_id would retarget the call).
+      const TARGET_KEYS = new Set(['entity_id', 'entity_ids', 'area_id', 'device_id'])
+      const rawData = args.data ?? undefined
+      const data = rawData
+        ? Object.fromEntries(Object.entries(rawData).filter(([key]) => !TARGET_KEYS.has(key)))
+        : undefined
       const label = entityIds.length
         ? entityIds.join(', ')
         : (args.areaId ? `area:${args.areaId}` : (args.deviceId ? `device:${args.deviceId}` : ''))
-      await client.callService(args.domain, args.service, target, args.data ?? undefined)
+      await client.callService(args.domain, args.service, target, data)
       return {
         ok: true,
         domain: args.domain,
         service: args.service,
         target: label,
-        data: (args.data ?? null) as JsonValue,
+        data: (data && Object.keys(data).length > 0 ? data : null) as JsonValue,
       }
     },
   }))

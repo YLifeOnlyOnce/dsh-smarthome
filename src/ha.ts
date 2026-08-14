@@ -287,6 +287,13 @@ export class HomeAssistantWsClient {
     socket.addEventListener('close', () => {
       if (this.socket === socket) this.socket = null
       if (this.status !== 'unavailable') this.status = 'disconnected'
+      // Fail pending requests fast instead of leaving them to their 8s timeout:
+      // a dropped connection cannot answer them.
+      for (const pending of this.pending.values()) {
+        clearTimeout(pending.timer)
+        pending.reject(new HomeAssistantError('Home Assistant WebSocket connection closed'))
+      }
+      this.pending.clear()
       this.scheduleReconnect()
     })
     socket.addEventListener('error', () => {

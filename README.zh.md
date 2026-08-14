@@ -1,12 +1,33 @@
-# dsh-smarthome
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="dsh-smarthome" width="820">
+</p>
 
-[English](README.md) · [dsh-plugin](https://github.com/topics/dsh-plugin) · MIT
+<p align="center">
+  <b>给 <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a> agent 的 Home Assistant 控制插件。</b><br>
+  读取实体状态 · 查询历史 · 调用服务——所有改变状态的调用都经过人工审批闸门。
+</p>
 
-**给 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) agent 的 Home Assistant 控制插件。** 让 agent 读取实体状态、查询历史、调用服务（灯、开关、空调……）——所有改变状态的调用都经过人工审批闸门。
+<p align="center">
+  <a href="README.md">English</a> ·
+  <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/dsh--plugin-ecosystem-4d7cfe" alt="dsh-plugin"></a> ·
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT"></a> ·
+  <a href="https://github.com/YLifeOnlyOnce/dsh-smarthome/actions/workflows/ci.yml"><img src="https://github.com/YLifeOnlyOnce/dsh-smarthome/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+</p>
 
-除 harness 本身外零运行时依赖。使用 Home Assistant 内置 REST API——不需要 MQTT、WebSocket 或额外守护进程。
+<p align="center">除 harness 本身外零运行时依赖。使用 Home Assistant 内置 REST API——不需要 MQTT、WebSocket 或额外守护进程。</p>
 
-## 功能
+---
+
+## ✨ 效果预览
+
+点击图片可打开在线演示 —— [`docs/demo.html`](docs/demo.html) 会模拟完整的 DSH 对话，右侧实时控制台直连自带的 HA 模拟器（不需要真实 Home Assistant）。
+
+| ① 提问 | ② 审批闸门 | ③ 完成——状态真的变了 |
+|---|---|---|
+| <img src="docs/assets/demo-start.png" width="380" alt="开始"> | <img src="docs/assets/demo-approval.png" width="380" alt="审批"> | <img src="docs/assets/demo-final.png" width="380" alt="完成"> |
+| agent 用 `ha_list_entities` 列出你的灯。 | `ha_call_service` 暂停，弹出人工审批框。 | 批准后 `ha_get_state` 确认灯已打开。 |
+
+## 🛠 功能
 
 | 工具 | 说明 | 审批 |
 |---|---|---|
@@ -25,13 +46,13 @@
 >
 > 「给我看过去 24 小时锅炉开关的历史记录。」
 
-## 安装
+## 📦 安装
 
 需要 **dsh ≥ 0.1.0-rc.6**（当前 npm latest）。
 
 ```sh
 # 从 GitHub 安装（源码安装，pnpm 会在安装时自动构建）：
-dsh plugin --profile web add github:<你>/dsh-smarthome
+dsh plugin --profile web add github:YLifeOnlyOnce/dsh-smarthome
 
 # 如果 pnpm 拒绝运行 git 依赖的 prepare 构建脚本，需要放行一次：
 #   在 <profile>/pnpm-workspace.yaml 里加上，然后重新执行 add：
@@ -44,12 +65,12 @@ dsh plugin --profile web add github:<你>/dsh-smarthome
 
 安装后重启 `dsh --profile web`。可在 **Settings → Plugins** 管理。
 
-## 没有 Home Assistant？先玩演示模式
+## 🧪 没有 Home Assistant？先玩演示模式
 
 仓库自带一个**假的 HA 模拟器**：一个会"动"的演示小家——调用服务真的会改变实体状态，适合在接真实硬件之前完整体验插件。
 
 ```sh
-git clone https://github.com/<你>/dsh-smarthome
+git clone https://github.com/YLifeOnlyOnce/dsh-smarthome
 cd dsh-smarthome
 pnpm install
 pnpm demo:ha          # 在 http://127.0.0.1:8124 起一个假的 Home Assistant
@@ -80,7 +101,7 @@ HOME_ASSISTANT_TOKEN=demo-token dsh --profile web
 
 可直接粘贴的配置（演示模式 / 真实 HA / 关闭审批）见 [`examples/cordis.patch.yml`](examples/cordis.patch.yml)。
 
-## 配置
+## ⚙️ 配置
 
 在 Home Assistant 中创建长期访问令牌：**个人资料 → 安全 → 长期访问令牌**。
 
@@ -106,25 +127,26 @@ HOME_ASSISTANT_TOKEN=<token> dsh --profile web
 
 `baseUrl` 默认为 `http://homeassistant.local:8123`（Home Assistant 标准 mDNS 地址）。未配置令牌时插件仍会加载——每次调用都会给出清晰的「未配置」错误，而不是让 harness 崩溃。
 
-## 安全说明
+## 🔒 安全说明
 
 - Home Assistant 令牌可以控制实例里的**一切**——没有按实体授权的粒度。因此 `requireApproval` 默认为 `true`，`ha_call_service` / `ha_render_template` 永远走 harness 的审批接缝。
 - `allowedDomains` 是第二道保险：设置后，其他 domain 的服务调用会被直接拒绝。
 - 优先用 `tokenEnv` 而不是 `token`，避免密钥进 Git 提交。
 
-## 开发
+## 🛠 开发
 
 ```sh
 pnpm install
 pnpm typecheck   # 针对已发布的 @deepseek-ai/* 类型做严格 TS 检查
 pnpm build       # 打包 lib/（ESM + d.ts）
-pnpm test        # 客户端测试（内存中的 HA REST API mock）
+pnpm test        # 18 个测试：客户端套件 + 真实 ToolRuntime 集成套件
+node scripts/capture-demo.mjs   # 重新生成 README 截图
 ```
 
-## 兼容性
+## 📋 兼容性
 
 DeepSeek Harness 处于 developer preview，迭代很快。本插件已针对 npm 发布的 `@deepseek-ai/dsh@0.1.0-rc.6` 验证；如果 harness 更新导致不兼容，请提 issue。
 
-## 许可证
+## 📄 许可证
 
 MIT

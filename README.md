@@ -1,12 +1,33 @@
-# dsh-smarthome
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="dsh-smarthome" width="820">
+</p>
 
-[中文](README.zh.md) · [dsh-plugin](https://github.com/topics/dsh-plugin) · MIT
+<p align="center">
+  <b>Home Assistant control for <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a> agents.</b><br>
+  Read entity states · query history · call services — every state-changing call sits behind a human approval gate.
+</p>
 
-**Home Assistant control for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) agents.** Let your agent read entity states, query history, and call services (lights, switches, climate…) — every state-changing call sits behind a human approval gate.
+<p align="center">
+  <a href="README.zh.md">中文</a> ·
+  <a href="https://github.com/topics/dsh-plugin"><img src="https://img.shields.io/badge/dsh--plugin-ecosystem-4d7cfe" alt="dsh-plugin"></a> ·
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT"></a> ·
+  <a href="https://github.com/YLifeOnlyOnce/dsh-smarthome/actions/workflows/ci.yml"><img src="https://github.com/YLifeOnlyOnce/dsh-smarthome/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+</p>
 
-Zero runtime dependencies beyond the harness itself. Uses Home Assistant's built-in REST API — no MQTT, no WebSocket, no extra daemon.
+<p align="center">Zero runtime dependencies beyond the harness itself. Uses Home Assistant's built-in REST API — no MQTT, no WebSocket, no extra daemon.</p>
 
-## Features
+---
+
+## ✨ What it looks like
+
+Click any image to open the live demo — [`docs/demo.html`](docs/demo.html) simulates the full DSH conversation, and its live console talks to the bundled HA emulator (no real Home Assistant needed).
+
+| ① Ask | ② Approval gate | ③ Done — state changed |
+|---|---|---|
+| <img src="docs/assets/demo-start.png" width="380" alt="start"> | <img src="docs/assets/demo-approval.png" width="380" alt="approval"> | <img src="docs/assets/demo-final.png" width="380" alt="final"> |
+| The agent lists your lights with `ha_list_entities`. | `ha_call_service` pauses for a human approval dialog. | Approved — `ha_get_state` confirms the light turned on. |
+
+## 🛠 Features
 
 | Tool | Description | Approval |
 |---|---|---|
@@ -25,13 +46,13 @@ Example prompts:
 >
 > "Show me the boiler switch history for the last 24 hours."
 
-## Install
+## 📦 Install
 
 Requires **dsh ≥ 0.1.0-rc.6** (current npm latest).
 
 ```sh
 # From GitHub (source install — pnpm builds on the fly):
-dsh plugin --profile web add github:<you>/dsh-smarthome
+dsh plugin --profile web add github:YLifeOnlyOnce/dsh-smarthome
 
 # If pnpm refuses to run the prepare build on a git dependency, allow it once:
 #   add this to <profile>/pnpm-workspace.yaml, then re-run the add:
@@ -44,12 +65,12 @@ dsh plugin --profile web add github:<you>/dsh-smarthome
 
 Restart `dsh --profile web` after installing. Manage it in **Settings → Plugins**.
 
-## Try it without Home Assistant (demo mode)
+## 🧪 Try it without Home Assistant (demo mode)
 
-No Home Assistant instance? The repo ships a **fake HA emulator** with a small living demo home whose state actually changes when you call services — perfect for trying the plugin before wiring up real hardware.
+No HA instance? The repo ships a **fake HA emulator** with a small living demo home whose state *actually changes* when you call services — perfect for trying the plugin before wiring up real hardware.
 
 ```sh
-git clone https://github.com/<you>/dsh-smarthome
+git clone https://github.com/YLifeOnlyOnce/dsh-smarthome
 cd dsh-smarthome
 pnpm install
 pnpm demo:ha          # serves a fake Home Assistant at http://127.0.0.1:8124
@@ -80,7 +101,7 @@ The emulator also drifts the temperature sensor every few seconds, so `ha_histor
 
 Ready-to-paste configs (demo / real HA / no-approval) live in [`examples/cordis.patch.yml`](examples/cordis.patch.yml).
 
-## Configuration
+## ⚙️ Configuration
 
 Create a long-lived access token in Home Assistant: **Profile → Security → Long-lived access tokens**.
 
@@ -106,25 +127,26 @@ HOME_ASSISTANT_TOKEN=<token> dsh --profile web
 
 `baseUrl` defaults to `http://homeassistant.local:8123` (the standard Home Assistant mDNS host). If no token is configured the plugin still loads — every tool call fails with a clear "not configured" message instead of crashing the harness.
 
-## Security
+## 🔒 Security
 
 - A Home Assistant token can control **everything** in your instance — there is no per-entity scope. That is why `requireApproval` defaults to `true` and `ha_call_service` / `ha_render_template` always route through the harness approval seam.
 - `allowedDomains` is a second belt: when set, service calls on other domains are denied outright.
 - Prefer `tokenEnv` over `token` so the secret never lands in a committed config file.
 
-## Development
+## 🛠 Development
 
 ```sh
 pnpm install
 pnpm typecheck   # strict TS against the published @deepseek-ai/* types
 pnpm build       # bundle lib/ (ESM + d.ts)
-pnpm test        # client tests against an in-memory mock of the HA REST API
+pnpm test        # 18 tests: client suite + real ToolRuntime integration suite
+node scripts/capture-demo.mjs   # regenerate the README screenshots
 ```
 
-## Compatibility
+## 📋 Compatibility
 
 DeepSeek Harness is in developer preview and changes fast. This plugin is verified against the published `@deepseek-ai/dsh@0.1.0-rc.6` line; if a harness update breaks it, please open an issue.
 
-## License
+## 📄 License
 
 MIT

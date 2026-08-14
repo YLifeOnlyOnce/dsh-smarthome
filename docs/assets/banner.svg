@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="400" viewBox="0 0 1600 400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0e1013"/>
+      <stop offset="0.6" stop-color="#131a26"/>
+      <stop offset="1" stop-color="#0f2740"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4d7cfe"/>
+      <stop offset="1" stop-color="#6ee7b7"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="400" rx="28" fill="url(#bg)"/>
+
+  <!-- decorative dots -->
+  <g fill="#ffffff" opacity="0.05">
+    <circle cx="120" cy="60" r="4"/><circle cx="260" cy="90" r="3"/>
+    <circle cx="420" cy="40" r="5"/><circle cx="90" cy="330" r="3"/>
+    <circle cx="330" cy="350" r="4"/><circle cx="1500" cy="70" r="4"/>
+    <circle cx="1420" cy="320" r="3"/><circle cx="1560" cy="200" r="5"/>
+  </g>
+  <line x1="0" y1="360" x2="1600" y2="360" stroke="#ffffff" opacity="0.04" stroke-width="1"/>
+
+  <!-- left: title -->
+  <text x="90" y="170" font-family="system-ui,-apple-system,'PingFang SC',sans-serif" font-size="76" font-weight="800" fill="#e6e9ee">dsh-smarthome</text>
+  <text x="94" y="228" font-family="system-ui,-apple-system,'PingFang SC',sans-serif" font-size="30" fill="#8b93a1">Home Assistant control for DeepSeek Harness agents</text>
+
+  <!-- chips -->
+  <g font-family="ui-monospace,Menlo,monospace" font-size="20">
+    <rect x="92" y="268" width="210" height="44" rx="22" fill="#16191e" stroke="#262b33"/>
+    <text x="197" y="296" text-anchor="middle" fill="#6ee7b7">ha_health</text>
+    <rect x="318" y="268" width="260" height="44" rx="22" fill="#16191e" stroke="#262b33"/>
+    <text x="448" y="296" text-anchor="middle" fill="#e6e9ee">ha_call_service</text>
+    <rect x="594" y="268" width="250" height="44" rx="22" fill="#16191e" stroke="#262b33"/>
+    <text x="719" y="296" text-anchor="middle" fill="#fbbf24">🔒 审批门控</text>
+  </g>
+
+  <!-- right: icons -->
+  <g stroke="none">
+    <!-- house -->
+    <g filter="url(#glow)">
+      <rect x="1150" y="110" width="120" height="120" rx="22" fill="#12151a" stroke="#262b33" stroke-width="2"/>
+    </g>
+    <path d="M1175 178 v-34 l35 -24 35 24 v34 h-20 v-24 h-30 v24 z" fill="#4d7cfe"/>
+    <rect x="1188" y="160" width="12" height="16" rx="3" fill="#0e1013" opacity="0.55"/>
+
+    <!-- bulb -->
+    <g filter="url(#glow)">
+      <rect x="1300" y="110" width="120" height="120" rx="22" fill="#12151a" stroke="#262b33" stroke-width="2"/>
+    </g>
+    <circle cx="1360" cy="156" r="24" fill="#fbbf24"/>
+    <rect x="1352" y="182" width="16" height="12" rx="4" fill="#fbbf24"/>
+    <rect x="1356" y="196" width="8" height="6" rx="2" fill="#fbbf24" opacity="0.6"/>
+    <line x1="1360" y1="128" x2="1360" y2="138" stroke="#fbbf24" stroke-width="4" stroke-linecap="round"/>
+    <line x1="1330" y1="144" x2="1338" y2="150" stroke="#fbbf24" stroke-width="4" stroke-linecap="round"/>
+    <line x1="1390" y1="144" x2="1382" y2="150" stroke="#fbbf24" stroke-width="4" stroke-linecap="round"/>
+
+    <!-- thermostat -->
+    <g filter="url(#glow)">
+      <rect x="1450" y="110" width="120" height="120" rx="22" fill="#12151a" stroke="#262b33" stroke-width="2"/>
+    </g>
+    <circle cx="1510" cy="158" r="26" fill="none" stroke="#6ee7b7" stroke-width="6"/>
+    <circle cx="1510" cy="158" r="8" fill="#6ee7b7"/>
+    <line x1="1510" y1="158" x2="1526" y2="144" stroke="#6ee7b7" stroke-width="4" stroke-linecap="round"/>
+    <rect x="1502" y="188" width="16" height="10" rx="4" fill="#6ee7b7" opacity="0.55"/>
+  </g>
+</svg>

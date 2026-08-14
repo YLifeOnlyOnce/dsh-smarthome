@@ -205,6 +205,11 @@ document.getElementById('denyBtn').onclick = () => {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let playing = false;
 
+// Screenshot modes (used for README assets via headless Chrome):
+//   #final     — auto-play the whole conversation, auto-approve, end state
+//   #approval  — open the approval dialog immediately
+const AUTO_MODE = location.hash.includes('final') || location.hash.includes('approval');
+
 async function playDemo() {
   if (playing) return;
   playing = true;
@@ -236,7 +241,9 @@ async function playDemo() {
   userMsg('把卧室灯调到 200 亮度。');
   await sleep(500);
   const callCard = toolCard('ha_call_service', 'light.turn_on · 等待批准…', 'pending');
-  const approved = await askApproval('light.turn_on\n目标: light.bedroom\n数据: {"brightness": 200}');
+  const approved = AUTO_MODE
+    ? await (async () => { await sleep(400); return true; })()
+    : await askApproval('light.turn_on\n目标: light.bedroom\n数据: {"brightness": 200}');
   if (approved) {
     callCard.querySelector('.cb').textContent = '✅ Service call completed\nCalled light.turn_on on light.bedroom with {"brightness":200}.';
     callCard.querySelector('.cb').classList.add('ok');
@@ -330,6 +337,10 @@ document.getElementById('refreshBtn').onclick = () => listEntities();
 
 // 页面加载时探测一次模拟器
 checkHealth();
+
+// Screenshot-mode entry points
+if (location.hash === '#final') playDemo();
+else if (location.hash === '#approval') askApproval('light.turn_on\n目标: light.bedroom\n数据: {"brightness": 200}');
 </script>
 </body>
 </html>

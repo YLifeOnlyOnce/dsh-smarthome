@@ -88,6 +88,11 @@
           <button class="btn" data-act="turnon">开卧室灯 (200)</button>
           <button class="btn danger" data-act="turnoff">关卧室灯</button>
         </div>
+        <div class="row">
+          <span style="font-size:12px;color:var(--muted);align-self:center">场景一键切换</span>
+          <button class="btn ghost" data-act="scene-cinema">🎬 电影模式</button>
+          <button class="btn ghost" data-act="scene-goodnight">🌙 晚安模式</button>
+        </div>
         <div><b style="font-size:13px">设备状态</b></div>
         <div id="states" class="states"></div>
         <div><b style="font-size:13px">输出</b></div>
@@ -330,6 +335,13 @@ document.querySelectorAll('.console [data-act]').forEach(btn => {
       const approved = await askApproval(`light.${service}\n目标: light.bedroom${act === 'turnon' ? '\n数据: {"brightness": 200}' : ''}`);
       if (!approved) { logOut('❌ 已拒绝'); return; }
       return callService('light', service, { entity_id: ['light.bedroom'], ...(act === 'turnon' ? { brightness: 200 } : {}) });
+    }
+    if (act === 'scene-cinema' || act === 'scene-goodnight') {
+      const sceneId = act === 'scene-cinema' ? 'scene.cinema' : 'scene.goodnight';
+      const name = act === 'scene-cinema' ? '🎬 电影模式' : '🌙 晚安模式';
+      const approved = await askApproval(`scene.turn_on\n场景: ${name}\n目标: 全屋多设备联动`);
+      if (!approved) { logOut('❌ 已拒绝'); return; }
+      return callService('scene', 'turn_on', { entity_id: [sceneId] });
     }
   };
 });

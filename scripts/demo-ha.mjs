@@ -103,7 +103,49 @@ const entities = new Map([
   ['sensor.power', entity('sensor.power', '320', { friendly_name: 'Whole-home Power', unit_of_measurement: 'W' })],
   ['climate.thermostat', entity('climate.thermostat', 'heat', { friendly_name: 'Thermostat', temperature: 21, current_temperature: 22.5, hvac_modes: ['off', 'heat', 'cool', 'auto'] })],
   ['media_player.tv', entity('media_player.tv', 'off', { friendly_name: 'TV' })],
+  ['scene.cinema', entity('scene.cinema', 'off', { friendly_name: 'Cinema Mode' })],
+  ['scene.goodnight', entity('scene.goodnight', 'off', { friendly_name: 'Goodnight Mode' })],
+  ['scene.away', entity('scene.away', 'off', { friendly_name: 'Away Mode' })],
 ])
+
+/** One-click scenes: scene id → entities to set when activated. */
+const SCENES = {
+  'scene.cinema': {
+    'light.living_room': { state: 'on', attributes: { brightness: 40, color_temp: 180 } },
+    'media_player.tv': { state: 'on' },
+    'light.bedroom': { state: 'off' },
+  },
+  'scene.goodnight': {
+    'light.living_room': { state: 'off' },
+    'light.bedroom': { state: 'off' },
+    'media_player.tv': { state: 'off' },
+    'climate.thermostat': { state: 'cool', attributes: { temperature: 24 } },
+  },
+  'scene.away': {
+    'light.living_room': { state: 'off' },
+    'light.bedroom': { state: 'off' },
+    'media_player.tv': { state: 'off' },
+    'switch.boiler': { state: 'off' },
+  },
+}
+
+/** Activate a scene: cascade the target states, broadcasting each change. */
+function applyScene(sceneId) {
+  const targets = SCENES[sceneId]
+  if (!targets) return 0
+  let matched = 0
+  for (const [id, spec] of Object.entries(targets)) {
+    const e = entities.get(id)
+    if (!e) continue
+    const old = { entity_id: e.entity_id, state: e.state, attributes: e.attributes, last_changed: e.last_changed }
+    e.state = spec.state
+    if (spec.attributes) Object.assign(e.attributes, spec.attributes)
+    stamp(e)
+    recordChange(e, old)
+    matched += 1
+  }
+  return matched
+}
 
 for (const e of entities.values()) recordChange(e)
 
@@ -153,6 +195,9 @@ const services = {
   },
   homeassistant: {
     toggle(e) { e.state = e.state === 'on' ? 'off' : 'on' },
+  },
+  scene: {
+    turn_on(e) { applyScene(e.entity_id) },
   },
 }
 

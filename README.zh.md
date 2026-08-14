@@ -27,6 +27,30 @@
 | <img src="docs/assets/demo-start.png" width="380" alt="开始"> | <img src="docs/assets/demo-approval.png" width="380" alt="审批"> | <img src="docs/assets/demo-final.png" width="380" alt="完成"> |
 | agent 用 `ha_list_entities` 列出你的灯。 | `ha_call_service` 暂停，弹出人工审批框。 | 批准后 `ha_get_state` 确认灯已打开。 |
 
+## 🎯 能做什么？
+
+像跟管家说话一样指挥你的家——所有写操作都先经过人工审批。
+
+| 你说 | 会发生什么 |
+|---|---|
+| 「检查一下全屋，哪些设备还开着？」 | agent 用 `ha_list_entities` / `ha_get_state` 扫描并汇总 |
+| 「把卧室灯调到 200 亮度。」 | `ha_call_service` → **审批弹窗** → 执行 → 状态即时更新 |
+| 「关掉客厅里所有的灯。」 | **区域定位**——一次调用控制整间房 |
+| 「开启电影模式。」 | 场景联动：灯调暗、电视打开——一条命令多设备联动（`ha_events` 实时显示每个变化） |
+| 「过去一小时家里发生了什么变化？」 | WebSocket **实时事件流** |
+| 「客厅温度够吗？和卧室比一下。」 | `ha_get_state` / `ha_render_template` 查传感器、算模板 |
+| 「我要出门了，把一切都关掉。」 | 一个场景（`scene.away`）或批量实体调用 |
+
+## 💡 为什么好用？
+
+- **一行安装**：`dsh plugin --profile web add dsh-smarthome`，装完直接说话
+- **安全默认**：所有改变状态的调用都停在人工审批前；`allowedDomains` 域白名单是第二道保险——**agent 不经你同意永远碰不了你的家**
+- **自然语言控制**：不用翻 App、不用记 API，一句「把灯调暗」就搞定
+- **状态永远新鲜**：WebSocket 实时推送，agent 不会"以为"灯还开着
+- **轻量**：零运行时依赖——纯 REST + Node 内置 WebSocket，没有 MQTT、没有额外守护进程
+- **没有 Home Assistant 也能玩**：自带演示模拟器 + 交互演示页，5 分钟完整感受
+- **工程化而非拼凑**：24 个测试（含完整**真实 agent-loop 端到端**）、严格 TypeScript、CI
+
 ## 🛠 功能
 
 | 工具 | 说明 | 审批 |
@@ -37,7 +61,8 @@
 | `ha_get_state` | 单个实体的完整状态与属性 | 只读 |
 | `ha_history` | 一段时间内的状态变化时间线 | 只读 |
 | `ha_events` | WebSocket 缓冲的最近实时状态变化 | 只读 |
-| `ha_call_service` | 调用任意服务——按**实体**、按**区域**（整间房）、按**设备** | **需批准** |
+| `ha_list_scenes` | 列出一键场景（`cinema`、`goodnight`、`away`…） | 只读 |
+| `ha_call_service` | 调用任意服务——按**实体**、按**区域**（整间房）、按**设备**、按**场景** | **需批准** |
 | `ha_render_template` | 服务端渲染 Jinja2 模板 | **需批准** |
 
 示例提示词：
@@ -49,6 +74,8 @@
 > 「给我看过去 24 小时锅炉开关的历史记录。」
 >
 > 「关掉卧室里所有的灯。」*（区域定位——一次调用，整间房）*
+>
+> 「开启电影模式。」*（场景联动——灯调暗、电视打开）*
 >
 > 「过去一小时家里发生了什么变化？」*（实时 `ha_events`）*
 

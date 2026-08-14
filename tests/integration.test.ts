@@ -59,7 +59,7 @@ afterAll(() => {
 })
 
 describe('dsh-smarthome in the real tool runtime', () => {
-  it('registers all eight ha_* tools', async () => {
+  it('registers all nine ha_* tools', async () => {
     const ctx = await setup()
     const names = ctx.tools.schemas().map(s => s.name).sort()
     expect(names).toEqual([
@@ -70,6 +70,7 @@ describe('dsh-smarthome in the real tool runtime', () => {
       'ha_history',
       'ha_list_areas',
       'ha_list_entities',
+      'ha_list_scenes',
       'ha_render_template',
     ])
   })
@@ -241,11 +242,13 @@ describe('dsh-smarthome in the real tool runtime', () => {
 
 describe('WebSocket-backed tools against the demo emulator', () => {
   // Imported in-process (the harness sandbox cannot spawn child node processes
-  // from the vitest worker; in-process import is also CI-proof).
+  // from the vitest worker; in-process import is also CI-proof). The emulator
+  // module runs its top-level `listen` exactly once (ESM caches modules), so it
+  // is started once for the whole describe and shared by the tests below.
   let emuPort: number
   let emu: { stop: () => void } | undefined
 
-  async function startEmulator(): Promise<void> {
+  beforeAll(async () => {
     emuPort = 19000 + Math.floor(Math.random() * 1000)
     // The emulator reads its port from argv[2] at import time.
     process.argv[2] = String(emuPort)
@@ -260,7 +263,12 @@ describe('WebSocket-backed tools against the demo emulator', () => {
       await new Promise(r => setTimeout(r, 100))
     }
     throw new Error('demo emulator did not start')
-  }
+  })
+
+  afterAll(() => {
+    emu?.stop()
+    emu = undefined
+  })
 
   async function waitForWs(ctx: Context, want: string, timeoutMs = 8000): Promise<void> {
     const deadline = Date.now() + timeoutMs
@@ -278,15 +286,13 @@ describe('WebSocket-backed tools against the demo emulator', () => {
   }
 
   it('lists areas, buffers live state changes, and targets areas', async () => {
-    await startEmulator()
-    try {
-      const ctx = await setup({
-        baseUrl: `http://127.0.0.1:${emuPort}`,
-        token: 'demo-token',
-        requireApproval: false,
-      })
-      // 1. WebSocket connects (real HA-style WS handshake against the emulator).
-      await waitForWs(ctx, 'connected')
+    const ctx = await setup({
+      baseUrl: `http://127.0.0.1:${emuPort}`,
+      token: 'demo-token',
+      requireApproval: false,
+    })
+    // 1. WebSocket connects (real HA-style WS handshake against the emulator).
+    await waitForWs(ctx, 'connected')
 
       // 2. ha_list_areas reads the area registry over WS.
       const areas = await ctx.tools.execute({
@@ -341,11 +347,7 @@ describe('WebSocket-backed tools against the demo emulator', () => {
         arguments: { entityId: 'light.bedroom' },
       })
       expect((state.value as { state?: string }).state).toBe('off')
-    } finally {
-      emu?.stop()
-      emu = undefined
-    }
-  })
+  }, 20000)
 
   it('degrades gracefully when the WebSocket is unreachable', async () => {
     const ctx = await setup({ wsEnabled: true }) // points at the REST-only mock
@@ -358,4 +360,76 @@ describe('WebSocket-backed tools against the demo emulator', () => {
     expect(areas.isError).toBe(true)
     expect(textOf(areas)).toMatch(/WebSocket is not connected|WebSocket is unavailable/)
   })
+
+  it('lists scenes and activates one — the emulator cascades the whole mood', async () => {
+    const ctx = await setup({
+      baseUrl: `http://127.0.0.1:${emuPort}`,
+      token: 'demo-token',
+      requireApproval: false,
+    })
+    // Make sure THIS plugin's WebSocket is subscribed before the cascade, or
+    // its ha_events buffer would miss the state_changed broadcasts.
+    await waitForWs(ctx, 'connected')
+
+      // 1. ha_list_scenes finds the demo scenes.
+      const scenes = await ctx.tools.execute({
+        signal,
+        callId: CallId('t-scenes'),
+        name: 'ha_list_scenes',
+        arguments: {},
+      })
+      expect(scenes.isError).toBe(false)
+      const sceneList = (scenes.value as { scenes: { entity_id: string; friendly_name: string }[] }).scenes
+      expect(sceneList.map(s => s.entity_id).sort()).toEqual([
+        'scene.away',
+        'scene.cinema',
+        'scene.goodnight',
+      ])
+
+      // 2. Activate "cinema" via the ordinary service-call tool.
+      const activate = await ctx.tools.execute({
+        signal,
+        callId: CallId('t-scene-on'),
+        name: 'ha_call_service',
+        arguments: { domain: 'scene', service: 'turn_on', entityId: 'scene.cinema' },
+      })
+      expect(activate.isError).toBe(false)
+
+      // 3. The cascade landed: dimmed living-room light, TV on, bedroom off.
+      const livingRoom = await ctx.tools.execute({
+        signal,
+        callId: CallId('t-scene-lr'),
+        name: 'ha_get_state',
+        arguments: { entityId: 'light.living_room' },
+      })
+      const lr = livingRoom.value as { state?: string; attributes?: { brightness?: number } }
+      expect(lr.state).toBe('on')
+      expect(lr.attributes?.brightness).toBe(40)
+
+      const tv = await ctx.tools.execute({
+        signal,
+        callId: CallId('t-scene-tv'),
+        name: 'ha_get_state',
+        arguments: { entityId: 'media_player.tv' },
+      })
+      expect((tv.value as { state?: string }).state).toBe('on')
+
+      const bedroom = await ctx.tools.execute({
+        signal,
+        callId: CallId('t-scene-br'),
+        name: 'ha_get_state',
+        arguments: { entityId: 'light.bedroom' },
+      })
+      expect((bedroom.value as { state?: string }).state).toBe('off')
+
+      // 4. The whole cascade is visible in the real-time event feed.
+      const events = await ctx.tools.execute({
+        signal,
+        callId: CallId('t-scene-events'),
+        name: 'ha_events',
+        arguments: {},
+      })
+      const eventList = (events.value as { events: { entity_id: string }[] }).events
+      expect(eventList.some(e => e.entity_id === 'media_player.tv')).toBe(true)
+  }, 20000)
 })

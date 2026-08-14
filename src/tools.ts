@@ -418,4 +418,59 @@ export function registerTools(
       return { template: args.template, rendered }
     },
   }))
+
+  ctx.tools.register(defineTool({
+    name: 'ha_list_scenes',
+    description:
+      'List Home Assistant scenes (one-click moods like "cinema", "goodnight", "away"). ' +
+      'Activate one with ha_call_service: domain "scene", service "turn_on", entityId the scene entity id.',
+    parameters: {
+      query: { type: 'string', description: 'Optional text search over scene id or friendly name' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          count: { type: 'number' },
+          scenes: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: true,
+              properties: {
+                entity_id: { type: 'string' },
+                state: { type: 'string' },
+                friendly_name: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      render: (_args, value) => {
+        const scenes = value.scenes as { entity_id: string; friendly_name: string }[]
+        return text(scenes.length
+          ? scenes.map(s => `- ${s.entity_id}: ${s.friendly_name || s.entity_id}`).join('\n')
+          : '(no scenes)')
+      },
+    },
+    async execute(args) {
+      const states = await client.getStates()
+      const query = (args.query ?? '').toLowerCase()
+      const scenes = states
+        .filter(s => s.entity_id.startsWith('scene.'))
+        .filter(s => !query ||
+          s.entity_id.toLowerCase().includes(query) ||
+          String(s.attributes.friendly_name ?? '').toLowerCase().includes(query))
+        .sort((a, b) => a.entity_id.localeCompare(b.entity_id))
+        .map(s => ({
+          entity_id: s.entity_id,
+          state: s.state,
+          friendly_name: typeof s.attributes.friendly_name === 'string'
+            ? s.attributes.friendly_name
+            : '',
+        }))
+      return { count: scenes.length, scenes }
+    },
+  }))
 }

@@ -1,6 +1,6 @@
 {
   "name": "dsh-smarthome",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Home Assistant control for DeepSeek Harness agents — read entity states, query history, and call services behind an approval gate.",
   "type": "module",
   "main": "lib/index.js",

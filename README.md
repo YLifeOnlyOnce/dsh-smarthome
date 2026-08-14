@@ -27,6 +27,30 @@ Click any image to open the live demo — [`docs/demo.html`](docs/demo.html) sim
 | <img src="docs/assets/demo-start.png" width="380" alt="start"> | <img src="docs/assets/demo-approval.png" width="380" alt="approval"> | <img src="docs/assets/demo-final.png" width="380" alt="final"> |
 | The agent lists your lights with `ha_list_entities`. | `ha_call_service` pauses for a human approval dialog. | Approved — `ha_get_state` confirms the light turned on. |
 
+## 🎯 What can it do?
+
+Talk to your home the way you talk to an assistant — every write goes through a human approval gate first.
+
+| You say | What happens |
+|---|---|
+| "Check the whole house — which devices are still on?" | Agent scans with `ha_list_entities` / `ha_get_state` and summarizes |
+| "Set the bedroom light to 200 brightness." | `ha_call_service` → **approval dialog** → executes → state updates instantly |
+| "Turn off every light in the living room." | **Area targeting** — one call controls the whole room |
+| "Start cinema mode." | Scene activation: dimmed lights + TV on — a whole cascade of devices in one shot (`ha_events` shows each change live) |
+| "What changed in the house in the last hour?" | Real-time `state_changed` events from the **WebSocket** feed |
+| "Is the living room warm enough? Compare with the bedroom." | `ha_get_state` / `ha_render_template` over sensors |
+| "Turn everything off, I'm leaving." | One scene (`scene.away`) or a multi-entity service call |
+
+## 💡 Why it's good — how useful is it?
+
+- **One-line install**: `dsh plugin --profile web add dsh-smarthome`, then just talk to the agent.
+- **Safe by default**: every state-changing call stops for human approval; `allowedDomains` is a second deny-list belt. The agent can never touch your home without you saying yes.
+- **Natural language control**: no apps to fiddle with, no API docs to memorize — "dim the lights" just works.
+- **Always current**: state changes reach the agent in real time over WebSocket, so it never "thinks" the light is still on when you switched it off.
+- **Lightweight**: zero runtime dependencies — plain REST + Node's built-in WebSocket. No MQTT broker, no extra daemon.
+- **Try it without Home Assistant**: the repo ships a demo emulator + interactive demo page — 5 minutes to a full feel of the plugin.
+- **Engineered, not hacked together**: 24 tests including a full **real agent-loop end-to-end** suite, strict TypeScript, CI.
+
 ## 🛠 Features
 
 | Tool | Description | Approval |
@@ -37,7 +61,8 @@ Click any image to open the live demo — [`docs/demo.html`](docs/demo.html) sim
 | `ha_get_state` | Full state + attributes of one entity | read |
 | `ha_history` | State-change timeline over a time window | read |
 | `ha_events` | Recent real-time state changes buffered from the WebSocket | read |
-| `ha_call_service` | Call any service — by **entity**, by **area** (whole room), or by **device** | **ask** |
+| `ha_list_scenes` | List one-click scenes (`cinema`, `goodnight`, `away`…) | read |
+| `ha_call_service` | Call any service — by **entity**, by **area** (whole room), by **device**, or **scene** | **ask** |
 | `ha_render_template` | Render a Jinja2 template server-side | **ask** |
 
 Example prompts:
@@ -49,6 +74,8 @@ Example prompts:
 > "Show me the boiler switch history for the last 24 hours."
 >
 > "Turn off every light in the bedroom." *(area targeting — one call, whole room)*
+>
+> "Start cinema mode." *(scene activation — lights dim, TV turns on)*
 >
 > "What changed in the house in the last hour?" *(real-time `ha_events`)*
 

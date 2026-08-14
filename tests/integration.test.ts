@@ -59,11 +59,12 @@ afterAll(() => {
 })
 
 describe('dsh-smarthome in the real tool runtime', () => {
-  it('registers all nine ha_* tools', async () => {
+  it('registers all ten ha_* tools', async () => {
     const ctx = await setup()
     const names = ctx.tools.schemas().map(s => s.name).sort()
     expect(names).toEqual([
       'ha_call_service',
+      'ha_dashboard',
       'ha_events',
       'ha_get_state',
       'ha_health',
@@ -431,5 +432,50 @@ describe('WebSocket-backed tools against the demo emulator', () => {
       })
       const eventList = (events.value as { events: { entity_id: string }[] }).events
       expect(eventList.some(e => e.entity_id === 'media_player.tv')).toBe(true)
+  }, 20000)
+
+  it('ha_dashboard builds a full snapshot and projects it onto tool/result meta', async () => {
+    const ctx = await setup({
+      baseUrl: `http://127.0.0.1:${emuPort}`,
+      token: 'demo-token',
+      requireApproval: false,
+    })
+    await waitForWs(ctx, 'connected')
+
+    // Trigger one live change so the snapshot's event feed is non-empty.
+    await fetch(`http://127.0.0.1:${emuPort}/api/services/switch/turn_on`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer demo-token', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entity_id: ['switch.boiler'] }),
+    })
+    const deadline = Date.now() + 8000
+    while (Date.now() < deadline) {
+      const poll = await ctx.tools.execute({
+        signal,
+        callId: CallId('t-dash-poll'),
+        name: 'ha_events',
+        arguments: {},
+      })
+      if ((poll.value as { events: { entity_id: string }[] }).events.some(e => e.entity_id === 'switch.boiler')) break
+      await new Promise(r => setTimeout(r, 200))
+    }
+
+    const result = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-dashboard'),
+      name: 'ha_dashboard',
+      arguments: {},
+    })
+    expect(result.isError).toBe(false)
+
+    const value = result.value as { entities: { entity_id: string }[]; scenes: { entity_id: string }[]; events: { entity_id: string }[] }
+    expect(value.entities.some(e => e.entity_id === 'light.living_room')).toBe(true)
+    expect(value.scenes.some(s => s.entity_id === 'scene.cinema')).toBe(true)
+    expect(value.events.some(e => e.entity_id === 'switch.boiler')).toBe(true)
+
+    // The same snapshot rides the durable tool/result meta for the browser node.
+    expect((result.meta as { kind?: string }).kind).toBe('smarthome-dashboard')
+    expect((result.meta as { entities: { entity_id: string }[] }).entities.length)
+      .toBe(value.entities.length)
   }, 20000)
 })

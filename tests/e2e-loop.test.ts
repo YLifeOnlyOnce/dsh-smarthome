@@ -8,6 +8,8 @@ import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { apply } from '../src/index'
+import { dashboardDefinition } from '../src/client/dashboard'
+import { DASHBOARD_META_KIND } from '../src/dashboard'
 import { startMockHa } from './mock-ha'
 import { MockAdapter, textResponse, toolCallResponse } from './mock-adapter'
 
@@ -114,5 +116,45 @@ describe('dsh-smarthome in the real agent loop', () => {
     const types = (agent.session.events as unknown as SessionEventLike[]).map(e => e.type)
     expect(types).toContain('tool/result')
     expect(types).toContain('turn/end')
+  })
+
+  it('ha_dashboard renders through the loop and the browser node assembles from its real event', async () => {
+    const adapter = new MockAdapter([
+      toolCallResponse('c-dash', 'ha_dashboard', {}),
+      textResponse('Here is your home dashboard.'),
+    ])
+    const ctx = await fullHarness(adapter)
+    const agent = await driveTurn(ctx, 'smarthome-e2e-dashboard', 'Show me my home dashboard.')
+
+    expect(adapter.requests).toHaveLength(2)
+
+    // The dashboard tool result carried the snapshot in its durable meta.
+    const toolResult = (agent.session.events as unknown as Array<{
+      type: string
+      data?: { meta?: { kind?: string } }
+    }>).find(e => e.type === 'tool/result' && e.data?.meta?.kind === DASHBOARD_META_KIND)
+    expect(toolResult).toBeDefined()
+
+    // The browser conversation node builds a renderer-ready node from that
+    // exact real event — live and on replay.
+    const match = dashboardDefinition.match(toolResult as never)
+    expect(match).not.toBeNull()
+    const engineMatch = {
+      id: match!.id,
+      role: 'start',
+      event: toolResult,
+      view: undefined,
+      location: { kind: 'unresolved' },
+    }
+    const state = dashboardDefinition.start!({} as never, engineMatch as never, {} as never)
+    const node = dashboardDefinition.buildViewNode!({
+      key: 'k-dash',
+      id: match!.id,
+      state,
+      start: { event: toolResult },
+      matches: [engineMatch],
+    } as never)
+    expect(node?.kind).toBe('smarthome-dashboard')
+    expect((node!.data as { snapshot: { entities: unknown[] } }).snapshot.entities.length).toBeGreaterThan(0)
   })
 })

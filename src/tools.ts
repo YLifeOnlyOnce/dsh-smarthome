@@ -7,6 +7,7 @@ import {
 } from '@deepseek-ai/dsh-tools'
 import type { Config } from './config'
 import { HomeAssistantClient, HomeAssistantWsClient, type HaState } from './ha'
+import { DASHBOARD_META_KIND, type DashboardSnapshot } from './dashboard'
 
 /** Text content block helper for `output.render` / card content. */
 function text(value: string): { type: 'text'; text: string }[] {
@@ -471,6 +472,77 @@ export function registerTools(
             : '',
         }))
       return { count: scenes.length, scenes }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'ha_dashboard',
+    description:
+      'Build a full home dashboard snapshot: every entity (grouped by domain, with ' +
+      'friendly names, states and units), all scenes, and recent state changes. ' +
+      'The result renders as a home dashboard card in the Web UI.',
+    parameters: {},
+    output: {
+      // The canonical value IS the durable snapshot; it is also projected onto
+      // `tool/result` meta (presentationMeta) so the browser dashboard node can
+      // render it on live streaming AND on session-log replay.
+      schema: { type: 'json' },
+      render: (_args, value) => {
+        const s = value as unknown as DashboardSnapshot
+        const on = s.entities.filter(e => e.state === 'on').length
+        return text(
+          `Dashboard snapshot: ${s.entities.length} entities (${on} on), ` +
+          `${s.scenes.length} scenes, ${s.events.length} recent changes.`,
+        )
+      },
+      presentationMeta: (_args, value) => value as JsonValue,
+    },
+    presentResult(_args, result): GenericResultView | undefined {
+      return {
+        card: 'generic',
+        content: result.isError
+          ? result.content
+          : [{ type: 'text', text: '🏠 Home dashboard ready' }],
+      }
+    },
+    async execute() {
+      const states = await client.getStates()
+      const scenes = states
+        .filter(s => s.entity_id.startsWith('scene.'))
+        .map(s => ({
+          entity_id: s.entity_id,
+          friendly_name: typeof s.attributes.friendly_name === 'string'
+            ? s.attributes.friendly_name
+            : s.entity_id,
+        }))
+        .sort((a, b) => a.entity_id.localeCompare(b.entity_id))
+      const entities: DashboardSnapshot['entities'] = states
+        .filter(s => !s.entity_id.startsWith('scene.'))
+        .sort((a, b) => a.entity_id.localeCompare(b.entity_id))
+        .map(s => ({
+          entity_id: s.entity_id,
+          state: s.state,
+          friendly_name: typeof s.attributes.friendly_name === 'string'
+            ? s.attributes.friendly_name
+            : s.entity_id,
+          ...(typeof s.attributes.unit_of_measurement === 'string'
+            ? { unit: s.attributes.unit_of_measurement }
+            : {}),
+        }))
+      const events = ws.events.slice(-8).map(e => ({
+        entity_id: e.entity_id,
+        state: e.state,
+        old_state: e.old_state,
+        last_changed: e.last_changed,
+      }))
+      const snapshot: DashboardSnapshot = {
+        kind: DASHBOARD_META_KIND,
+        generatedAt: new Date().toISOString(),
+        entities,
+        scenes,
+        events,
+      }
+      return snapshot
     },
   }))
 }

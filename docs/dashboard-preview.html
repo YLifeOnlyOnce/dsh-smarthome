@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>家庭仪表盘预览</title>
+<style>
+  body { margin: 0; padding: 32px; background: #0e1013; font-family: system-ui, -apple-system, "PingFang SC", sans-serif; display: flex; justify-content: center; }
+  .card {
+    background: #12151a; border: 1px solid #262b33; border-radius: 14px;
+    padding: 16px 18px; width: 560px; color: #e6e9ee;
+  }
+  .head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .head .t { font-weight: 700; font-size: 15px; flex: 1; }
+  .head .meta { color: #8b93a1; font-size: 11px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .chip { font-size: 12px; background: #16191e; border: 1px solid #262b33; border-radius: 99px; padding: 3px 10px; }
+  .sec { margin-bottom: 9px; }
+  .sec .st { color: #8b93a1; font-size: 11px; margin-bottom: 4px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; background: #16191e; border: 1px solid #262b33; }
+  .row .ic { font-size: 15px; }
+  .row .nm { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .v { font-size: 12px; font-weight: 600; }
+  .row .d { width: 7px; height: 7px; border-radius: 50%; }
+  .on { color: #6ee7b7; } .off { color: #4a5160; } .num { color: #4d7cfe; } .warm { color: #fbbf24; }
+  .bg-on { background: #6ee7b7; } .bg-off { background: #4a5160; } .bg-num { background: #4d7cfe; } .bg-warm { background: #fbbf24; }
+  .events { margin-top: 10px; padding-top: 10px; border-top: 1px solid #262b33; }
+  .events .st { color: #8b93a1; font-size: 11px; margin-bottom: 4px; }
+  .ev { color: #8b93a1; font-size: 12px; display: flex; gap: 6px; }
+  .ev .flex { flex: 1; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="head">
+    <span style="font-size:17px">🏠</span>
+    <span class="t">家庭仪表盘</span>
+    <span class="meta">11 个设备 · 3 在线 · 18:32:05</span>
+  </div>
+  <div class="chips">
+    <span class="chip">🎬 电影模式</span>
+    <span class="chip">🌙 晚安模式</span>
+    <span class="chip">🚪 离家模式</span>
+  </div>
+
+  <div class="sec"><div class="st">💡 灯光</div>
+    <div class="grid">
+      <div class="row"><span class="ic">💡</span><span class="nm">客厅灯</span><span class="v on">on</span><span class="d bg-on"></span></div>
+      <div class="row"><span class="ic">💡</span><span class="nm">卧室灯</span><span class="v off">off</span><span class="d bg-off"></span></div>
+    </div>
+  </div>
+
+  <div class="sec"><div class="st">🔌 开关</div>
+    <div class="grid">
+      <div class="row"><span class="ic">🔌</span><span class="nm">热水器</span><span class="v off">off</span><span class="d bg-off"></span></div>
+    </div>
+  </div>
+
+  <div class="sec"><div class="st">📊 传感器</div>
+    <div class="grid">
+      <div class="row"><span class="ic">🌡️</span><span class="nm">客厅温度</span><span class="v num">22.5 °C</span><span class="d bg-num"></span></div>
+      <div class="row"><span class="ic">💧</span><span class="nm">客厅湿度</span><span class="v num">48 %</span><span class="d bg-num"></span></div>
+      <div class="row"><span class="ic">⚡</span><span class="nm">全屋功率</span><span class="v warm">320 W</span><span class="d bg-warm"></span></div>
+    </div>
+  </div>
+
+  <div class="sec"><div class="st">❄️ 空调</div>
+    <div class="grid">
+      <div class="row"><span class="ic">❄️</span><span class="nm">中央空调</span><span class="v on">heat 21°</span><span class="d bg-on"></span></div>
+    </div>
+  </div>
+
+  <div class="sec"><div class="st">📺 影音</div>
+    <div class="grid">
+      <div class="row"><span class="ic">📺</span><span class="nm">电视</span><span class="v off">off</span><span class="d bg-off"></span></div>
+    </div>
+  </div>
+
+  <div class="events"><div class="st">🕐 最近变化</div>
+    <div class="ev"><span>🎬</span><span class="flex">scene.cinema: — → on</span><span>18:31</span></div>
+    <div class="ev"><span>📺</span><span class="flex">media_player.tv: off → on</span><span>18:31</span></div>
+    <div class="ev"><span>💡</span><span class="flex">light.living_room: on → on <span style="color:#8b93a1">(brightness 40)</span></span><span>18:31</span></div>
+  </div>
+</div>
+</body>
+</html>

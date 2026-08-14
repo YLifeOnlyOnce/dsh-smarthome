@@ -27,6 +27,10 @@
 | <img src="docs/assets/demo-start.png" width="380" alt="开始"> | <img src="docs/assets/demo-approval.png" width="380" alt="审批"> | <img src="docs/assets/demo-final.png" width="380" alt="完成"> |
 | agent 用 `ha_list_entities` 列出你的灯。 | `ha_call_service` 暂停，弹出人工审批框。 | 批准后 `ha_get_state` 确认灯已打开。 |
 
+**还有 Web UI 仪表盘卡片** —— 调用 `ha_dashboard`，全屋状态直接渲染在对话里：
+
+<p align="center"><img src="docs/assets/dashboard.png" width="420" alt="家庭仪表盘"></p>
+
 ## 🎯 能做什么？
 
 像跟管家说话一样指挥你的家——所有写操作都先经过人工审批。
@@ -34,6 +38,7 @@
 | 你说 | 会发生什么 |
 |---|---|
 | 「检查一下全屋，哪些设备还开着？」 | agent 用 `ha_list_entities` / `ha_get_state` 扫描并汇总 |
+| 「给我看看家庭仪表盘。」 | `ha_dashboard` 在对话里渲染**实时仪表盘卡片**——设备、场景、最近变化一览无余 |
 | 「把卧室灯调到 200 亮度。」 | `ha_call_service` → **审批弹窗** → 执行 → 状态即时更新 |
 | 「关掉客厅里所有的灯。」 | **区域定位**——一次调用控制整间房 |
 | 「开启电影模式。」 | 场景联动：灯调暗、电视打开——一条命令多设备联动（`ha_events` 实时显示每个变化） |
@@ -62,6 +67,7 @@
 | `ha_history` | 一段时间内的状态变化时间线 | 只读 |
 | `ha_events` | WebSocket 缓冲的最近实时状态变化 | 只读 |
 | `ha_list_scenes` | 列出一键场景（`cinema`、`goodnight`、`away`…） | 只读 |
+| `ha_dashboard` | 全屋快照，在 Web UI 里渲染为**仪表盘卡片** | 只读 |
 | `ha_call_service` | 调用任意服务——按**实体**、按**区域**（整间房）、按**设备**、按**场景** | **需批准** |
 | `ha_render_template` | 服务端渲染 Jinja2 模板 | **需批准** |
 

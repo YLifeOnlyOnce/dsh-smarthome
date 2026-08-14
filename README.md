@@ -27,6 +27,10 @@ Click any image to open the live demo — [`docs/demo.html`](docs/demo.html) sim
 | <img src="docs/assets/demo-start.png" width="380" alt="start"> | <img src="docs/assets/demo-approval.png" width="380" alt="approval"> | <img src="docs/assets/demo-final.png" width="380" alt="final"> |
 | The agent lists your lights with `ha_list_entities`. | `ha_call_service` pauses for a human approval dialog. | Approved — `ha_get_state` confirms the light turned on. |
 
+**And the Web UI dashboard card** — call `ha_dashboard` and get a live snapshot of the whole home rendered right in the conversation:
+
+<p align="center"><img src="docs/assets/dashboard.png" width="420" alt="home dashboard"></p>
+
 ## 🎯 What can it do?
 
 Talk to your home the way you talk to an assistant — every write goes through a human approval gate first.
@@ -34,6 +38,7 @@ Talk to your home the way you talk to an assistant — every write goes through 
 | You say | What happens |
 |---|---|
 | "Check the whole house — which devices are still on?" | Agent scans with `ha_list_entities` / `ha_get_state` and summarizes |
+| "Show me the home dashboard." | `ha_dashboard` renders a **live dashboard card** in the conversation — devices, scenes and recent changes at a glance |
 | "Set the bedroom light to 200 brightness." | `ha_call_service` → **approval dialog** → executes → state updates instantly |
 | "Turn off every light in the living room." | **Area targeting** — one call controls the whole room |
 | "Start cinema mode." | Scene activation: dimmed lights + TV on — a whole cascade of devices in one shot (`ha_events` shows each change live) |
@@ -62,6 +67,7 @@ Talk to your home the way you talk to an assistant — every write goes through 
 | `ha_history` | State-change timeline over a time window | read |
 | `ha_events` | Recent real-time state changes buffered from the WebSocket | read |
 | `ha_list_scenes` | List one-click scenes (`cinema`, `goodnight`, `away`…) | read |
+| `ha_dashboard` | Full home snapshot rendered as a **dashboard card** in the Web UI | read |
 | `ha_call_service` | Call any service — by **entity**, by **area** (whole room), by **device**, or **scene** | **ask** |
 | `ha_render_template` | Render a Jinja2 template server-side | **ask** |
 

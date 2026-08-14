@@ -1,18 +1,18 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { PreToolDecision } from '@deepseek-ai/dsh-tools'
-import { Config, type Config as ConfigType } from './config'
+import { Config as ConfigSchema, type Config } from './config'
 import { HomeAssistantClient } from './ha'
 import { registerTools } from './tools'
 
 export const name = 'dsh-smarthome'
 export const inject = ['tools']
 
-export { Config }
+export { ConfigSchema as Config }
 
 /** Tools that change (or can be abused to change) Home Assistant state. */
 const SENSITIVE_TOOLS = new Set(['ha_call_service', 'ha_render_template'])
 
-export function apply(ctx: Context, config: ConfigType) {
+export function apply(ctx: Context, config: Config) {
   // Token resolution: explicit `token` wins, otherwise read `tokenEnv`.
   // An empty token still loads the plugin — every call then fails with a
   // clear "not configured" message instead of crashing the harness at boot.

@@ -44,6 +44,38 @@ dsh plugin --profile web add github:<你>/dsh-smarthome
 
 安装后重启 `dsh --profile web`。可在 **Settings → Plugins** 管理。
 
+## 没有 Home Assistant？先玩演示模式
+
+仓库自带一个**假的 HA 模拟器**：一个会"动"的演示小家——调用服务真的会改变实体状态，适合在接真实硬件之前完整体验插件。
+
+```sh
+git clone https://github.com/<你>/dsh-smarthome
+cd dsh-smarthome
+pnpm install
+pnpm demo:ha          # 在 http://127.0.0.1:8124 起一个假的 Home Assistant
+```
+
+另开一个终端，在 profile 的 `cordis.patch.yml` 里配置插件：
+
+```yaml
+- id: smarthome
+  config:
+    baseUrl: http://127.0.0.1:8124
+    tokenEnv: HOME_ASSISTANT_TOKEN
+```
+
+然后启动 dsh 试试：
+
+```sh
+HOME_ASSISTANT_TOKEN=demo-token dsh --profile web
+```
+
+> 「检查 Home Assistant 是否在线，然后列出所有灯。」
+>
+> 「把卧室灯调到 200 亮度。」——会弹出审批请求；批准后 `ha_get_state` 会显示灯确实是 `on`，且 `brightness: 200`。
+
+模拟器里的温度传感器每几秒漂移一次，所以 `ha_history` 永远有新数据。任意 `Bearer` token 都行，`demo-token` 只是约定俗成。
+
 ## 配置
 
 在 Home Assistant 中创建长期访问令牌：**个人资料 → 安全 → 长期访问令牌**。

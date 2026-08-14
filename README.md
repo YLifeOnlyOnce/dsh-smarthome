@@ -44,6 +44,38 @@ dsh plugin --profile web add github:<you>/dsh-smarthome
 
 Restart `dsh --profile web` after installing. Manage it in **Settings → Plugins**.
 
+## Try it without Home Assistant (demo mode)
+
+No Home Assistant instance? The repo ships a **fake HA emulator** with a small living demo home whose state actually changes when you call services — perfect for trying the plugin before wiring up real hardware.
+
+```sh
+git clone https://github.com/<you>/dsh-smarthome
+cd dsh-smarthome
+pnpm install
+pnpm demo:ha          # serves a fake Home Assistant at http://127.0.0.1:8124
+```
+
+In another terminal, configure the plugin (add to your profile's `cordis.patch.yml`):
+
+```yaml
+- id: smarthome
+  config:
+    baseUrl: http://127.0.0.1:8124
+    tokenEnv: HOME_ASSISTANT_TOKEN
+```
+
+Then start dsh and try:
+
+```sh
+HOME_ASSISTANT_TOKEN=demo-token dsh --profile web
+```
+
+> "Check that Home Assistant is reachable, then list the lights."
+>
+> "Turn on the bedroom light at 200 brightness." — an approval request pops up; approve it, and `ha_get_state` will show the light is actually `on` with `brightness: 200`.
+
+The emulator also drifts the temperature sensor every few seconds, so `ha_history` always has fresh data. Any `Bearer` token works; `demo-token` is just the convention.
+
 ## Configuration
 
 Create a long-lived access token in Home Assistant: **Profile → Security → Long-lived access tokens**.

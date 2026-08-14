@@ -10,22 +10,22 @@
   .overlay {
     position: absolute; inset: 0; z-index: 2; pointer-events: none;
     font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-    padding: 108px 0 0 60px;
+    padding: 110px 0 0 56px;
   }
   .title {
-    font-size: 58px; font-weight: 800; letter-spacing: -1px; color: #f2f5fa;
+    font-size: 50px; font-weight: 800; letter-spacing: -1px; color: #f2f5fa;
     text-shadow: 0 0 18px rgba(77, 124, 254, .55), 0 0 46px rgba(77, 124, 254, .28);
   }
   .title .dot { color: #6ee7b7; text-shadow: 0 0 14px rgba(110, 231, 183, .8); }
-  .zh1 { margin-top: 14px; font-size: 29px; color: #cfd8e6; font-weight: 700; }
+  .zh1 { margin-top: 12px; font-size: 25px; color: #cfd8e6; font-weight: 700; }
   .zh2 {
-    margin-top: 4px; font-size: 29px; font-weight: 800; color: #8fb2ff;
+    margin-top: 4px; font-size: 25px; font-weight: 800; color: #8fb2ff;
     text-shadow: 0 0 16px rgba(77, 124, 254, .45);
   }
-  .en { margin-top: 8px; font-size: 15px; color: #6d7a90; letter-spacing: .3px; }
-  .chips { margin-top: 16px; display: flex; gap: 10px; }
+  .en { margin-top: 8px; font-size: 13px; color: #6d7a90; letter-spacing: .3px; }
+  .chips { margin-top: 14px; display: flex; gap: 9px; }
   .chip {
-    font-size: 13px; padding: 6px 14px; border-radius: 99px; color: #e6e9ee;
+    font-size: 12px; padding: 5px 13px; border-radius: 99px; color: #e6e9ee;
     background: rgba(22, 25, 30, .82); border: 1px solid #2a3140;
     box-shadow: 0 0 14px rgba(77, 124, 254, .18);
   }
@@ -49,7 +49,7 @@
 const canvas = document.getElementById('scene')
 const ctx = canvas.getContext('2d')
 
-const W = 1600, H = 500
+const W = 1280, H = 640
 canvas.width = W * 2
 canvas.height = H * 2
 canvas.style.width = W + 'px'
@@ -107,8 +107,8 @@ function drawParticles(t) {
 // ---------------------------------------------------------------------------
 // 链路：DSH → HA → 设备
 // ---------------------------------------------------------------------------
-const DSH = { x: 640, y: 250, w: 170, h: 78 }
-const HA = { x: 900, y: 250, w: 170, h: 78 }
+const DSH = { x: 560, y: 330, w: 170, h: 76 }
+const HA = { x: 820, y: 330, w: 170, h: 76 }
 
 function roundRect(x, y, w, h, r) {
   ctx.beginPath()
@@ -173,17 +173,17 @@ function drawLink(from, to, t, label) {
 }
 
 // ---------------------------------------------------------------------------
-// 设备集群（右侧两行，带状态点）
+// 设备集群（底部一排 8 个，带状态点）
 // ---------------------------------------------------------------------------
 const DEVICES = [
-  { icon: '💡', x: 1010, y: 128, name: 'light', color: '251,191,36', on: true },
-  { icon: '❄️', x: 1170, y: 128, name: 'climate', color: '96,165,250', on: true },
-  { icon: '🎥', x: 1330, y: 128, name: 'camera', color: '251,146,60', on: true },
-  { icon: '📺', x: 1490, y: 128, name: 'media', color: '129,140,248', on: false },
-  { icon: '🔌', x: 1010, y: 372, name: 'switch', color: '110,231,183', on: false },
-  { icon: '🔒', x: 1170, y: 372, name: 'lock', color: '110,231,183', on: true },
-  { icon: '🚪', x: 1330, y: 372, name: 'door', color: '148,163,184', on: false },
-  { icon: '🎬', x: 1490, y: 372, name: 'scene', color: '232,121,249', on: true },
+  { icon: '💡', x: 224, y: 560, name: 'light', color: '251,191,36', on: true },
+  { icon: '❄️', x: 328, y: 560, name: 'climate', color: '96,165,250', on: true },
+  { icon: '🎥', x: 432, y: 560, name: 'camera', color: '251,146,60', on: true },
+  { icon: '📺', x: 536, y: 560, name: 'media', color: '129,140,248', on: false },
+  { icon: '🔌', x: 640, y: 560, name: 'switch', color: '110,231,183', on: false },
+  { icon: '🔒', x: 744, y: 560, name: 'lock', color: '110,231,183', on: true },
+  { icon: '🚪', x: 848, y: 560, name: 'door', color: '148,163,184', on: false },
+  { icon: '🎬', x: 952, y: 560, name: 'scene', color: '232,121,249', on: true },
 ]
 
 function drawDevices(t) {
@@ -198,30 +198,30 @@ function drawDevices(t) {
     const px = HA.x + dx * off, py = HA.y + dy * off
     ctx.strokeStyle = `rgba(${r},${g},${b},0.22)`
     ctx.lineWidth = 1.2
-    ctx.beginPath(); ctx.moveTo(HA.x + 30, HA.y + 20); ctx.lineTo(d.x - 40, d.y); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(HA.x + 30, HA.y + 20); ctx.lineTo(d.x - 44, d.y - 32); ctx.stroke()
     const g1 = ctx.createRadialGradient(px, py, 0, px, py, 5)
     g1.addColorStop(0, `rgba(${r},${g},${b},0.9)`)
     g1.addColorStop(1, `rgba(${r},${g},${b},0)`)
     ctx.fillStyle = g1
     ctx.beginPath(); ctx.arc(px, py, 5, 0, TAU); ctx.fill()
     // 设备块
-    roundRect(d.x - 62, d.y - 44, 124, 88, 16)
+    roundRect(d.x - 48, d.y - 35, 96, 70, 14)
     ctx.fillStyle = 'rgba(16, 19, 25, 0.92)'
     ctx.fill()
     ctx.strokeStyle = `rgba(${r},${g},${b},${0.4 + 0.3 * breathe})`
-    ctx.lineWidth = 1.6
+    ctx.lineWidth = 1.5
     ctx.stroke()
     // 图标
-    ctx.font = '32px system-ui, "PingFang SC", sans-serif'
+    ctx.font = '26px system-ui, "PingFang SC", sans-serif'
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    ctx.fillText(d.icon, d.x, d.y - 8)
+    ctx.fillText(d.icon, d.x, d.y - 7)
     // 名称
-    ctx.font = '600 11px system-ui, sans-serif'
+    ctx.font = '600 10px system-ui, sans-serif'
     ctx.fillStyle = '#8b93a1'
-    ctx.fillText(d.name, d.x, d.y + 26)
+    ctx.fillText(d.name, d.x, d.y + 22)
     // 状态点
     ctx.fillStyle = d.on ? 'rgba(110,231,183,0.95)' : 'rgba(74,81,96,0.9)'
-    ctx.beginPath(); ctx.arc(d.x + 44, d.y - 34, 3.5, 0, TAU); ctx.fill()
+    ctx.beginPath(); ctx.arc(d.x + 36, d.y - 27, 3, 0, TAU); ctx.fill()
   }
 }
 

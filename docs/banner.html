@@ -106,7 +106,7 @@ function roundRect(x, y, w, h, r) {
   ctx.closePath()
 }
 
-function drawChip(n, accent, name, sub, t) {
+function drawChip(n, accent, name, sub, t, size = 26) {
   const [r, g, b] = accent.split(',').map(Number)
   // 底部柔光
   const glow = ctx.createRadialGradient(n.x, n.y + 10, 0, n.x, n.y + 10, 90)
@@ -130,12 +130,16 @@ function drawChip(n, accent, name, sub, t) {
   ctx.fill()
   // 文字
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  ctx.font = '800 26px system-ui, sans-serif'
+  ctx.font = `800 ${size}px system-ui, sans-serif`
   ctx.fillStyle = '#f4f7fc'
-  ctx.fillText(name, n.x, n.y - 9)
-  ctx.font = '500 11.5px system-ui, "PingFang SC", sans-serif'
-  ctx.fillStyle = '#8b93a1'
-  ctx.fillText(sub, n.x, n.y + 15)
+  if (sub) {
+    ctx.fillText(name, n.x, n.y - 9)
+    ctx.font = '500 11.5px system-ui, "PingFang SC", sans-serif'
+    ctx.fillStyle = '#8b93a1'
+    ctx.fillText(sub, n.x, n.y + 15)
+  } else {
+    ctx.fillText(name, n.x, n.y)
+  }
 }
 
 function drawConnector(t) {
@@ -195,7 +199,7 @@ function frame(now) {
   drawBackground()
   drawConnector(t)
   drawChip(DSH, '77,124,254', 'DSH', 'DeepSeek Harness', t)
-  drawChip(HA, '110,231,183', 'HA', 'Home Assistant', t)
+  drawChip(HA, '110,231,183', 'Home Assistant', '', t, 19)
   drawLight(t)
   requestAnimationFrame(frame)
 }

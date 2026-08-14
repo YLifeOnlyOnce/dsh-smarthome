@@ -60,36 +60,72 @@ const TAU = Math.PI * 2
 const rand = (a, b) => a + Math.random() * (b - a)
 
 // ---------------------------------------------------------------------------
-// 背景粒子（氛围，低调）
+// 背景：DeepSeek 官网风格的粒子海浪
+// 密集粒子网格，多层正弦波驱动流动：波峰增亮、偏青白，波谷变暗偏蓝。
 // ---------------------------------------------------------------------------
-const PARTICLES = []
-for (let i = 0; i < 90; i++) {
-  PARTICLES.push({
+const WAVE_PARTICLES = []
+const WAVE_COLS = 150
+const WAVE_ROWS = 16
+for (let row = 0; row < WAVE_ROWS; row++) {
+  for (let col = 0; col < WAVE_COLS; col++) {
+    const bx = (col / (WAVE_COLS - 1)) * W + rand(-4, 4)
+    const by = (row / (WAVE_ROWS - 1)) * (H - 30) + 15 + rand(-3, 3)
+    WAVE_PARTICLES.push({
+      bx, by,
+      x: bx, y: by,
+      size: rand(0.8, 1.9),
+      phase: rand(0, TAU),
+      drift: rand(-0.25, 0.25),
+    })
+  }
+}
+
+// 波峰附近额外点缀的亮星
+const SPARKS = []
+for (let i = 0; i < 60; i++) {
+  SPARKS.push({
     x: rand(0, W), y: rand(0, H),
-    r: rand(0.6, 1.8),
-    vx: rand(-0.14, 0.14), vy: rand(-0.1, 0.1),
-    phase: rand(0, TAU), speed: rand(0.4, 1.2),
+    r: rand(1.2, 3.2),
+    vx: rand(-0.4, 0.4), vy: rand(-0.3, 0.3),
+    phase: rand(0, TAU), speed: rand(0.5, 1.4),
+    hue: Math.random() < 0.6 ? '77,124,254' : (Math.random() < 0.5 ? '110,231,183' : '251,191,36'),
   })
 }
+
+function waveY(p, t) {
+  // 多层正弦叠加 → 流动的浪
+  return p.by
+    + Math.sin(p.bx * 0.007 + t * 0.0011 + p.phase) * 16
+    + Math.sin(p.bx * 0.018 + t * 0.0024) * 7
+    + Math.sin(p.bx * 0.0035 - t * 0.0007) * 22
+}
+
 function drawParticles(t) {
-  for (const p of PARTICLES) {
-    p.x += p.vx * p.speed; p.y += p.vy * p.speed
-    if (p.x < -10) p.x = W + 10; if (p.x > W + 10) p.x = -10
-    if (p.y < -10) p.y = H + 10; if (p.y > H + 10) p.y = -10
-    const tw = 0.5 + 0.5 * Math.sin(t * 0.002 + p.phase)
-    ctx.fillStyle = `rgba(120, 150, 210, ${0.16 + 0.3 * tw})`
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (0.7 + 0.6 * tw), 0, TAU); ctx.fill()
+  // 粒子浪
+  for (const p of WAVE_PARTICLES) {
+    p.x = p.bx + Math.sin(t * 0.0005 + p.phase) * 4 + p.drift * 30
+    p.y = waveY(p, t)
+    const phase = (p.y - p.by) / 45 // 归一化浪高
+    const crest = Math.max(0, phase)
+    const alpha = 0.25 + crest * 0.75
+    const blue = 110 + crest * 100
+    const green = 150 + crest * 60
+    ctx.fillStyle = `rgba(${80 + crest * 40}, ${green}, ${blue}, ${alpha})`
+    const s = p.size * (1 + crest * 1.6)
+    ctx.fillRect(p.x, p.y, s, s)
   }
-  for (let i = 0; i < PARTICLES.length; i++) {
-    for (let j = i + 1; j < PARTICLES.length; j++) {
-      const a = PARTICLES[i], b = PARTICLES[j]
-      const dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy
-      if (d2 < 70 * 70) {
-        ctx.strokeStyle = `rgba(110, 160, 255, ${(1 - Math.sqrt(d2) / 70) * 0.08})`
-        ctx.lineWidth = 1
-        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
-      }
-    }
+  // 亮星
+  for (const s of SPARKS) {
+    s.x += s.vx * s.speed; s.y += s.vy * s.speed
+    if (s.x < -10) s.x = W + 10; if (s.x > W + 10) s.x = -10
+    if (s.y < -10) s.y = H + 10; if (s.y > H + 10) s.y = -10
+    const tw = 0.5 + 0.5 * Math.sin(t * 0.002 + s.phase)
+    const [r, g, b] = s.hue.split(',').map(Number)
+    const g1 = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 4)
+    g1.addColorStop(0, `rgba(${r},${g},${b},${0.5 + 0.4 * tw})`)
+    g1.addColorStop(1, `rgba(${r},${g},${b},0)`)
+    ctx.fillStyle = g1
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r * 4, 0, TAU); ctx.fill()
   }
 }
 

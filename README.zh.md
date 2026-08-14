@@ -31,6 +31,10 @@
 
 <p align="center"><img src="docs/assets/dashboard.png" width="420" alt="家庭仪表盘"></p>
 
+**它接入的就是这样的 Home Assistant**（典型智能家居仪表盘，示意图）：
+
+<p align="center"><img src="docs/assets/ha-mockup.png" width="680" alt="Home Assistant 仪表盘示意图"></p>
+
 ## 🎯 能做什么？
 
 像跟管家说话一样指挥你的家——所有写操作都先经过人工审批。

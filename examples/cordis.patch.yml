@@ -1,0 +1,42 @@
+# dsh-smarthome 示例配置
+# 用法：把下面任意一段贴到你 profile 的 cordis.patch.yml（$DSH_HOME/profiles/<name>/cordis.patch.yml）
+# 后层覆盖前层，改完重启 dsh --profile web 生效。
+# 管理界面：Settings → Plugins
+
+# ─────────────────────────────────────────────────────────────
+# 方案 A：演示模式（没有真实 Home Assistant）
+# 先启动模拟器：cd dsh-smarthome && pnpm demo:ha
+# 模拟器地址 http://127.0.0.1:8124，任意 Bearer token 可用（约定 demo-token）
+# ─────────────────────────────────────────────────────────────
+- id: smarthome
+  config:
+    baseUrl: http://127.0.0.1:8124
+    tokenEnv: HOME_ASSISTANT_TOKEN
+    timeoutMs: 15000
+    requireApproval: true
+    allowedDomains: []
+    maxHistoryEvents: 200
+
+# ─────────────────────────────────────────────────────────────
+# 方案 B：真实 Home Assistant
+# 1) HA → 个人资料 → 安全 → 长期访问令牌，生成一个 token
+# 2) baseUrl 改成你的 HA 地址（默认 http://homeassistant.local:8123）
+# 3) 建议用 tokenEnv 而不是把 token 写进配置；启动时带上环境变量
+# ─────────────────────────────────────────────────────────────
+# - id: smarthome
+#   config:
+#     baseUrl: http://192.168.1.10:8123
+#     tokenEnv: HOME_ASSISTANT_TOKEN
+#     requireApproval: true
+#     allowedDomains: [light, switch, climate]   # 可选：服务域白名单，留空 = 全部允许
+#
+# 启动：HOME_ASSISTANT_TOKEN=<token> dsh --profile web
+
+# ─────────────────────────────────────────────────────────────
+# 方案 C：完全关掉审批（仅建议在可信、隔离的环境用）
+# ─────────────────────────────────────────────────────────────
+# - id: smarthome
+#   config:
+#     baseUrl: http://homeassistant.local:8123
+#     tokenEnv: HOME_ASSISTANT_TOKEN
+#     requireApproval: false

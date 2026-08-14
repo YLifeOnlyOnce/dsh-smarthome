@@ -78,6 +78,8 @@ The emulator also drifts the temperature sensor every few seconds, so `ha_histor
 
 **Want to preview the UI without running dsh at all?** Open [`docs/demo.html`](docs/demo.html) in a browser: it replays a simulated DSH conversation (tool cards + the approval dialog), and its live console talks to the emulator directly when it's running.
 
+Ready-to-paste configs (demo / real HA / no-approval) live in [`examples/cordis.patch.yml`](examples/cordis.patch.yml).
+
 ## Configuration
 
 Create a long-lived access token in Home Assistant: **Profile → Security → Long-lived access tokens**.

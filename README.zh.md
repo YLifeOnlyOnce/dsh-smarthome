@@ -78,6 +78,8 @@ HOME_ASSISTANT_TOKEN=demo-token dsh --profile web
 
 **想完全不启动 dsh 就先看效果？** 用浏览器打开 [`docs/demo.html`](docs/demo.html)：它会回放一段模拟的 DSH 对话（工具卡片 + 审批弹窗），模拟器运行时右侧实时控制台还会直连它做真实调用。
 
+可直接粘贴的配置（演示模式 / 真实 HA / 关闭审批）见 [`examples/cordis.patch.yml`](examples/cordis.patch.yml)。
+
 ## 配置
 
 在 Home Assistant 中创建长期访问令牌：**个人资料 → 安全 → 长期访问令牌**。

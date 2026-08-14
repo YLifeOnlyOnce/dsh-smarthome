@@ -80,18 +80,6 @@ for (let row = 0; row < WAVE_ROWS; row++) {
   }
 }
 
-// 波峰附近额外点缀的亮星
-const SPARKS = []
-for (let i = 0; i < 60; i++) {
-  SPARKS.push({
-    x: rand(0, W), y: rand(0, H),
-    r: rand(1.2, 3.2),
-    vx: rand(-0.4, 0.4), vy: rand(-0.3, 0.3),
-    phase: rand(0, TAU), speed: rand(0.5, 1.4),
-    hue: Math.random() < 0.6 ? '77,124,254' : (Math.random() < 0.5 ? '110,231,183' : '251,191,36'),
-  })
-}
-
 function waveY(p, t) {
   // 多层正弦叠加 → 流动的浪
   return p.by
@@ -113,19 +101,6 @@ function drawParticles(t) {
     ctx.fillStyle = `rgba(${80 + crest * 40}, ${green}, ${blue}, ${alpha})`
     const s = p.size * (1 + crest * 1.6)
     ctx.fillRect(p.x, p.y, s, s)
-  }
-  // 亮星
-  for (const s of SPARKS) {
-    s.x += s.vx * s.speed; s.y += s.vy * s.speed
-    if (s.x < -10) s.x = W + 10; if (s.x > W + 10) s.x = -10
-    if (s.y < -10) s.y = H + 10; if (s.y > H + 10) s.y = -10
-    const tw = 0.5 + 0.5 * Math.sin(t * 0.002 + s.phase)
-    const [r, g, b] = s.hue.split(',').map(Number)
-    const g1 = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 4)
-    g1.addColorStop(0, `rgba(${r},${g},${b},${0.5 + 0.4 * tw})`)
-    g1.addColorStop(1, `rgba(${r},${g},${b},0)`)
-    ctx.fillStyle = g1
-    ctx.beginPath(); ctx.arc(s.x, s.y, s.r * 4, 0, TAU); ctx.fill()
   }
 }
 

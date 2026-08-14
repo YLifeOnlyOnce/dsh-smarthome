@@ -49,20 +49,34 @@ export class HomeAssistantClient {
   readonly baseUrl: string
   readonly token: string
   readonly timeoutMs: number
+  private readonly resolveToken?: () => Promise<string>
 
-  constructor(baseUrl: string, token: string, timeoutMs = 15000) {
+  constructor(
+    baseUrl: string,
+    token: string,
+    timeoutMs = 15000,
+    resolveToken?: () => Promise<string>,
+  ) {
     this.baseUrl = baseUrl.replace(/\/+$/, '')
     this.token = token
     this.timeoutMs = timeoutMs
+    this.resolveToken = resolveToken
   }
 
-  /** True when a token is available; all requests fail loudly when false. */
+  /** True when a token source is available; all requests fail loudly when false. */
   get configured(): boolean {
-    return this.token.length > 0
+    return this.token.length > 0 || this.resolveToken !== undefined
+  }
+
+  /** Resolve the current token (re-resolved per request when a resolver is set). */
+  private async tokenFor(): Promise<string> {
+    if (this.resolveToken) return (await this.resolveToken()) ?? ''
+    return this.token
   }
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    if (!this.configured) {
+    const token = await this.tokenFor()
+    if (!token) {
       throw new HomeAssistantError(
         'dsh-smarthome is not configured: no Home Assistant token. ' +
           'Set `token` or `tokenEnv` in the smarthome plugin config, then restart dsh.',
@@ -74,7 +88,7 @@ export class HomeAssistantClient {
       const res = await fetch(`${this.baseUrl}${path}`, {
         ...init,
         headers: {
-          Authorization: `Bearer ${this.token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
           ...init.headers,
         },
@@ -216,6 +230,7 @@ export class HomeAssistantWsClient {
   private readonly baseUrl: string
   private readonly token: string
   private readonly options: HaWsOptions
+  private readonly resolveToken?: () => Promise<string>
   private socket: WebSocket | null = null
   private readonly pending = new Map<number, PendingRequest>()
   private nextId = 1
@@ -226,14 +241,26 @@ export class HomeAssistantWsClient {
   status: HaWsStatus = 'disconnected'
   readonly events: HaStateChange[] = []
 
-  constructor(baseUrl: string, token: string, options: HaWsOptions) {
+  constructor(
+    baseUrl: string,
+    token: string,
+    options: HaWsOptions,
+    resolveToken?: () => Promise<string>,
+  ) {
     this.baseUrl = baseUrl.replace(/\/+$/, '')
     this.token = token
     this.options = options
+    this.resolveToken = resolveToken
+  }
+
+  /** Resolve the current token (re-resolved per connection when a resolver is set). */
+  private async tokenFor(): Promise<string> {
+    if (this.resolveToken) return (await this.resolveToken()) ?? ''
+    return this.token
   }
 
   /** Open the socket (no-op when disabled or unavailable). */
-  start(): void {
+  async start(): Promise<void> {
     if (this.disposed) return
     if (!this.options.enabled) {
       this.status = 'disconnected'
@@ -245,16 +272,17 @@ export class HomeAssistantWsClient {
     }
     if (this.socket && this.socket.readyState < 2) return // already open/connecting
 
+    const token = await this.tokenFor()
     const wsUrl = `${this.baseUrl.replace(/^http/, 'ws')}/api/websocket`
     const socket = new WebSocket(wsUrl)
     this.socket = socket
     this.status = 'connecting'
 
     socket.addEventListener('open', () => {
-      socket.send(JSON.stringify({ type: 'auth', access_token: this.token }))
+      socket.send(JSON.stringify({ type: 'auth', access_token: token }))
     })
     socket.addEventListener('message', (event) => {
-      this.onMessage(event.data as string)
+      this.onMessage(event.data as string, token)
     })
     socket.addEventListener('close', () => {
       if (this.socket === socket) this.socket = null
@@ -266,7 +294,7 @@ export class HomeAssistantWsClient {
     })
   }
 
-  private onMessage(raw: string): void {
+  private onMessage(raw: string, token: string): void {
     let msg: WsMessage
     try {
       msg = JSON.parse(raw) as WsMessage
@@ -274,7 +302,7 @@ export class HomeAssistantWsClient {
       return
     }
     if (msg.type === 'auth_required') {
-      this.socket?.send(JSON.stringify({ type: 'auth', access_token: this.token }))
+      this.socket?.send(JSON.stringify({ type: 'auth', access_token: token }))
       return
     }
     if (msg.type === 'auth_ok') {
@@ -331,7 +359,7 @@ export class HomeAssistantWsClient {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
       if (this.disposed) return
-      this.start()
+      void this.start()
     }, this.reconnectDelay)
     this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000)
   }

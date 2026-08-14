@@ -139,6 +139,10 @@ HOME_ASSISTANT_TOKEN=<token> dsh --profile web
 
 `baseUrl` defaults to `http://homeassistant.local:8123` (the standard Home Assistant mDNS host). If no token is configured the plugin still loads — every tool call fails with a clear "not configured" message instead of crashing the harness.
 
+### How the token is resolved
+
+`tokenEnv` is a **credential reference** resolved through the harness's [credential seam](https://github.com/deepseek-ai/deepseek-harness/tree/main/packages/credentials): when the `credentials` service is present, the value is read from its layered sources (process environment → `<cwd>/.env` → `$DSH_HOME/.env`), falling back to `process.env` directly otherwise. The token is re-resolved **per request / per socket connection**, so a rotated credential reaches the very next call without a restart.
+
 ## 🔒 Security
 
 - A Home Assistant token can control **everything** in your instance — there is no per-entity scope. That is why `requireApproval` defaults to `true` and `ha_call_service` / `ha_render_template` always route through the harness approval seam.
@@ -151,7 +155,7 @@ HOME_ASSISTANT_TOKEN=<token> dsh --profile web
 pnpm install
 pnpm typecheck   # strict TS against the published @deepseek-ai/* types
 pnpm build       # bundle lib/ (ESM + d.ts)
-pnpm test        # 18 tests: client suite + real ToolRuntime integration suite
+pnpm test        # 24 tests: client suite + real ToolRuntime integration + full agent-loop E2E
 node scripts/capture-demo.mjs   # regenerate the README screenshots
 ```
 

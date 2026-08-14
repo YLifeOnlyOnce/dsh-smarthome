@@ -1,5 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { PreToolDecision } from '@deepseek-ai/dsh-tools'
+import { credentialRef, type CredentialRef, type ResolvedCredential } from '@deepseek-ai/dsh-credentials'
 import { Config as ConfigSchema, type Config } from './config'
 import { HomeAssistantClient, HomeAssistantWsClient } from './ha'
 import { registerTools } from './tools'
@@ -12,22 +13,39 @@ export { ConfigSchema as Config }
 /** Tools that change (or can be abused to change) Home Assistant state. */
 const SENSITIVE_TOOLS = new Set(['ha_call_service', 'ha_render_template'])
 
+/** Structural view of the optional credentials seam (see @deepseek-ai/dsh-credentials). */
+interface CredentialsService {
+  resolve(ref: CredentialRef): Promise<ResolvedCredential | undefined>
+}
+
 export function apply(ctx: Context, config: Config) {
-  // Token resolution: explicit `token` wins, otherwise read `tokenEnv`.
-  // An empty token still loads the plugin — every call then fails with a
-  // clear "not configured" message instead of crashing the harness at boot.
-  const token = config.token || (config.tokenEnv ? process.env[config.tokenEnv] ?? '' : '')
-  const client = new HomeAssistantClient(config.baseUrl, token, config.timeoutMs)
+  // Token resolution through the harness credential seam when present, with
+  // the process environment as the fallback plane (same layering as the
+  // official LLM adapters). `tokenEnv` is the credential reference: a POSIX
+  // environment-variable name resolved per request / per socket connection,
+  // so a rotated credential reaches the very next call.
+  const credentials = ctx.get('credentials') as CredentialsService | undefined
+  const resolveToken = async (): Promise<string> => {
+    if (config.token) return config.token
+    const ref = credentialRef(config.tokenEnv)
+    if (credentials) {
+      const hit = await credentials.resolve(ref)
+      if (hit) return hit.value
+    }
+    return process.env[config.tokenEnv] ?? ''
+  }
+
+  const client = new HomeAssistantClient(config.baseUrl, '', config.timeoutMs, resolveToken)
 
   // Real-time WebSocket client (state_changed events + area registry). The
   // effect ties its lifetime to this plugin fiber: `start()` on load,
   // `dispose()` on unload / HMR.
-  const ws = new HomeAssistantWsClient(config.baseUrl, token, {
+  const ws = new HomeAssistantWsClient(config.baseUrl, '', {
     enabled: config.wsEnabled,
     bufferSize: config.eventBufferSize,
-  })
+  }, resolveToken)
   ctx.effect(() => {
-    ws.start()
+    void ws.start()
     return () => ws.dispose()
   }, `${name}.ws`)
 

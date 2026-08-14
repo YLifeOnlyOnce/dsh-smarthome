@@ -139,6 +139,10 @@ HOME_ASSISTANT_TOKEN=<token> dsh --profile web
 
 `baseUrl` 默认为 `http://homeassistant.local:8123`（Home Assistant 标准 mDNS 地址）。未配置令牌时插件仍会加载——每次调用都会给出清晰的「未配置」错误，而不是让 harness 崩溃。
 
+### 令牌如何解析
+
+`tokenEnv` 是一个**凭证引用**，通过 harness 的[凭证接缝](https://github.com/deepseek-ai/deepseek-harness/tree/main/packages/credentials)解析：存在 `credentials` 服务时，从分层来源读取（进程环境 → `<cwd>/.env` → `$DSH_HOME/.env`），否则直接回退到 `process.env`。令牌**每次请求 / 每次连接都会重新解析**，轮换凭证无需重启立即生效。
+
 ## 🔒 安全说明
 
 - Home Assistant 令牌可以控制实例里的**一切**——没有按实体授权的粒度。因此 `requireApproval` 默认为 `true`，`ha_call_service` / `ha_render_template` 永远走 harness 的审批接缝。
@@ -151,7 +155,7 @@ HOME_ASSISTANT_TOKEN=<token> dsh --profile web
 pnpm install
 pnpm typecheck   # 针对已发布的 @deepseek-ai/* 类型做严格 TS 检查
 pnpm build       # 打包 lib/（ESM + d.ts）
-pnpm test        # 18 个测试：客户端套件 + 真实 ToolRuntime 集成套件
+pnpm test        # 24 个测试：客户端 + 真实 ToolRuntime 集成 + 完整 agent-loop 端到端
 node scripts/capture-demo.mjs   # 重新生成 README 截图
 ```
 

@@ -39,13 +39,50 @@ function entity(id, state, attributes) {
 /** Per-entity history log of { state, last_changed, last_updated }. */
 const history = new Map()
 
+// Area registry (WebSocket `config/area_registry/list`) + area → entity map.
+const AREAS = [
+  { area_id: 'living_room', name: 'Living Room' },
+  { area_id: 'bedroom', name: 'Bedroom' },
+  { area_id: 'kitchen', name: 'Kitchen' },
+]
+const AREA_ENTITIES = {
+  living_room: ['light.living_room', 'sensor.temperature', 'sensor.humidity', 'climate.thermostat', 'media_player.tv'],
+  bedroom: ['light.bedroom'],
+  kitchen: [],
+}
+
+/** WebSocket subscribers waiting for state_changed events. */
+const wsSubscribers = new Set()
+
+function stateChangedEvent(e, oldState) {
+  return {
+    type: 'event',
+    event: {
+      event_type: 'state_changed',
+      data: {
+        entity_id: e.entity_id,
+        new_state: { entity_id: e.entity_id, state: e.state, attributes: e.attributes, last_changed: e.last_changed, last_updated: e.last_updated },
+        old_state: oldState,
+      },
+    },
+  }
+}
+
+/** Broadcast one state change to every subscribed WebSocket client. */
+function broadcastChange(e, oldState) {
+  const msg = JSON.stringify(stateChangedEvent(e, oldState))
+  for (const ws of wsSubscribers) {
+    if (ws.readyState === 1) ws.send(msg)
+  }
+}
+
 function stamp(e) {
   const now = new Date().toISOString()
   e.last_updated = now
   return now
 }
 
-function recordChange(e) {
+function recordChange(e, oldState) {
   const log = history.get(e.entity_id) ?? []
   log.push({
     entity_id: e.entity_id,
@@ -54,6 +91,7 @@ function recordChange(e) {
     last_updated: e.last_updated,
   })
   history.set(e.entity_id, log)
+  broadcastChange(e, oldState)
 }
 
 const entities = new Map([
@@ -70,13 +108,14 @@ const entities = new Map([
 for (const e of entities.values()) recordChange(e)
 
 // Let the temperature drift so ha_history always has fresh data.
-setInterval(() => {
+const driftInterval = setInterval(() => {
   const t = entities.get('sensor.temperature')
   const base = 21 + Math.random() * 3
+  const old = { entity_id: t.entity_id, state: t.state }
   t.state = base.toFixed(1)
   stamp(t)
   t.attributes.current_temperature = t.state
-  recordChange(t)
+  recordChange(t, old)
 }, 5000)
 
 // ---------------------------------------------------------------------------
@@ -122,6 +161,7 @@ const services = {
 // ---------------------------------------------------------------------------
 
 import { createServer } from 'node:http'
+import { WebSocketServer } from 'ws'
 
 function sendJson(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json' })
@@ -203,7 +243,13 @@ const server = createServer((req, res) => {
       try { data = JSON.parse(String(chunk)) } catch { /* ignore malformed body */ }
     })
     req.on('end', () => {
-      const targets = Array.isArray(data.entity_id) ? data.entity_id : (data.entity_id ? [data.entity_id] : [...entities.keys()])
+      // Target resolution: entity_id(s) | area_id (all entities in the room) | device_id (demo: same as entity).
+      let targets
+      if (Array.isArray(data.entity_id)) targets = data.entity_id
+      else if (typeof data.entity_id === 'string') targets = [data.entity_id]
+      else if (typeof data.area_id === 'string') targets = AREA_ENTITIES[data.area_id] ?? []
+      else if (typeof data.device_id === 'string') targets = [...entities.keys()].filter(id => id.includes(data.device_id))
+      else targets = [...entities.keys()]
       const fn = services[domain]?.[service]
       if (!fn) {
         return sendJson(res, 404, { message: `Service ${domain}.${service} not found` })
@@ -212,9 +258,10 @@ const server = createServer((req, res) => {
       for (const id of targets) {
         const e = entities.get(id)
         if (!e) continue
+        const old = { entity_id: e.entity_id, state: e.state, attributes: e.attributes, last_changed: e.last_changed }
         fn(e, data)
         stamp(e)
-        recordChange(e)
+        recordChange(e, old)
         matched += 1
       }
       if (matched === 0) {
@@ -251,11 +298,13 @@ const server = createServer((req, res) => {
 })
 
 server.listen(PORT, '127.0.0.1', () => {
+  if (!process.stdout.isTTY) return // stay quiet when imported by tests
   console.log(`
 ┌──────────────────────────────────────────────────────────────┐
 │  dsh-smarthome demo emulator                                 │
 │                                                              │
-│  http://127.0.0.1:${String(PORT).padEnd(41)}│
+│  REST  http://127.0.0.1:${String(PORT).padEnd(36)}│
+│  WS    ws://127.0.0.1:${PORT}/api/websocket                    │
 │                                                              │
 │  Configure the plugin:                                       │
 │    - id: smarthome                                           │
@@ -267,5 +316,66 @@ server.listen(PORT, '127.0.0.1', () => {
 │  Then ask the agent:                                         │
 │    "Check Home Assistant health and list the lights."        │
 │    "Turn on the bedroom light."   (approval → state changes) │
+│    "Turn off the lights in the living room." (area control)  │
+│    "What changed in the last minute?"       (ha_events)      │
 └──────────────────────────────────────────────────────────────┘`)
 })
+
+// ---------------------------------------------------------------------------
+// WebSocket API (HA-compatible subset): auth, area registry, state_changed.
+// ---------------------------------------------------------------------------
+const wss = new WebSocketServer({ server, path: '/api/websocket' })
+
+wss.on('connection', (ws) => {
+  let authed = false
+
+  const send = (obj) => { if (ws.readyState === 1) ws.send(JSON.stringify(obj)) }
+  send({ type: 'auth_required' })
+
+  ws.on('message', (raw) => {
+    let msg
+    try { msg = JSON.parse(String(raw)) } catch { return }
+
+    if (!authed) {
+      if (msg.type === 'auth' && typeof msg.access_token === 'string' && msg.access_token.length > 0) {
+        authed = true
+        send({ type: 'auth_ok' })
+      } else {
+        send({ type: 'auth_invalid', message: 'Invalid access token' })
+        ws.close()
+      }
+      return
+    }
+
+    if (msg.type === 'ping') return send({ type: 'pong' })
+
+    if (msg.type === 'config/area_registry/list') {
+      return send({ id: msg.id, type: 'result', success: true, result: AREAS })
+    }
+
+    if (msg.type === 'subscribe_events') {
+      wsSubscribers.add(ws)
+      return send({ id: msg.id, type: 'result', success: true, result: null })
+    }
+
+    if (msg.type === 'unsubscribe_events') {
+      wsSubscribers.delete(ws)
+      return send({ id: msg.id, type: 'result', success: true, result: null })
+    }
+
+    send({ id: msg.id, type: 'result', success: false, error: { code: 'not_supported', message: `Unknown command: ${msg.type}` } })
+  })
+
+  ws.on('close', () => wsSubscribers.delete(ws))
+  ws.on('error', () => wsSubscribers.delete(ws))
+})
+
+/**
+ * Shut the emulator down cleanly (used by tests that import this script
+ * in-process instead of spawning it).
+ */
+export function stop() {
+  clearInterval(driftInterval)
+  wss.close()
+  server.close()
+}

@@ -17,3 +17,5 @@
         requireApproval: true
         allowedDomains: []
         maxHistoryEvents: 200
+        wsEnabled: true
+        eventBufferSize: 50

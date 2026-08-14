@@ -31,11 +31,13 @@
 
 | 工具 | 说明 | 审批 |
 |---|---|---|
-| `ha_health` | 验证连接；返回实例名、版本、时区 | 只读 |
+| `ha_health` | 验证连接；返回实例名、版本、时区、WebSocket 状态 | 只读 |
 | `ha_list_entities` | 列出实体，按 domain（`light`、`switch`、`sensor`…）和文本过滤 | 只读 |
+| `ha_list_areas` | 通过 WebSocket 列出房间（区域），如 `living_room` | 只读 |
 | `ha_get_state` | 单个实体的完整状态与属性 | 只读 |
 | `ha_history` | 一段时间内的状态变化时间线 | 只读 |
-| `ha_call_service` | 调用任意服务，如 `light.turn_on`、`climate.set_temperature` | **需批准** |
+| `ha_events` | WebSocket 缓冲的最近实时状态变化 | 只读 |
+| `ha_call_service` | 调用任意服务——按**实体**、按**区域**（整间房）、按**设备** | **需批准** |
 | `ha_render_template` | 服务端渲染 Jinja2 模板 | **需批准** |
 
 示例提示词：
@@ -45,6 +47,10 @@
 > 「把客厅灯调到 60% 亮度。」*（会触发审批请求）*
 >
 > 「给我看过去 24 小时锅炉开关的历史记录。」
+>
+> 「关掉卧室里所有的灯。」*（区域定位——一次调用，整间房）*
+>
+> 「过去一小时家里发生了什么变化？」*（实时 `ha_events`）*
 
 ## 📦 安装
 
@@ -94,8 +100,12 @@ HOME_ASSISTANT_TOKEN=demo-token dsh --profile web
 > 「检查 Home Assistant 是否在线，然后列出所有灯。」
 >
 > 「把卧室灯调到 200 亮度。」——会弹出审批请求；批准后 `ha_get_state` 会显示灯确实是 `on`，且 `brightness: 200`。
+>
+> 「关掉客厅里所有的灯。」——通过 WebSocket 区域注册表做区域定位。
+>
+> 「过去一分钟发生了什么变化？」——WebSocket 实时 `state_changed` 事件。
 
-模拟器里的温度传感器每几秒漂移一次，所以 `ha_history` 永远有新数据。任意 `Bearer` token 都行，`demo-token` 只是约定俗成。
+模拟器里的温度传感器每几秒漂移一次，所以 `ha_history` 和 `ha_events` 永远有新数据。任意 `Bearer` token 都行，`demo-token` 只是约定俗成。
 
 **想完全不启动 dsh 就先看效果？** 用浏览器打开 [`docs/demo.html`](docs/demo.html)：它会回放一段模拟的 DSH 对话（工具卡片 + 审批弹窗），模拟器运行时右侧实时控制台还会直连它做真实调用。
 
@@ -117,6 +127,8 @@ HOME_ASSISTANT_TOKEN=demo-token dsh --profile web
     requireApproval: true               # 改变状态的调用需要人工批准
     allowedDomains: []                  # 例如 ["light", "switch"]；留空 = 允许所有 domain
     maxHistoryEvents: 200
+    wsEnabled: true                     # 实时事件 + 区域注册表（WebSocket）
+    eventBufferSize: 50                 # ha_events 滚动缓冲大小
 ```
 
 然后带上环境变量启动：

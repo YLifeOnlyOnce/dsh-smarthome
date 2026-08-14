@@ -6,7 +6,7 @@ import {
   type JsonValue,
 } from '@deepseek-ai/dsh-tools'
 import type { Config } from './config'
-import { HomeAssistantClient, type HaState } from './ha'
+import { HomeAssistantClient, HomeAssistantWsClient, type HaState } from './ha'
 
 /** Text content block helper for `output.render` / card content. */
 function text(value: string): { type: 'text'; text: string }[] {
@@ -31,16 +31,23 @@ function truncate(value: string, max = 4000): string {
 }
 
 /**
- * Register the six `ha_*` tools. All reads are cheap and safe; the two
- * powerful tools (`ha_call_service`, `ha_render_template`) are gated by the
- * plugin's `tools/pre-execute` policy in index.ts.
+ * Register the `ha_*` tools. Reads are cheap and safe; the powerful tools
+ * (`ha_call_service`, `ha_render_template`) are gated by the plugin's
+ * `tools/pre-execute` policy in index.ts. WebSocket-backed tools
+ * (`ha_list_areas`, `ha_events`) degrade gracefully when the socket is down.
  */
-export function registerTools(ctx: Context, client: HomeAssistantClient, config: Config): void {
+export function registerTools(
+  ctx: Context,
+  client: HomeAssistantClient,
+  ws: HomeAssistantWsClient,
+  config: Config,
+): void {
   ctx.tools.register(defineTool({
     name: 'ha_health',
     description:
       'Check the connection to Home Assistant and return instance info ' +
-      '(location name, version, timezone, unit system). Call this first to verify the plugin is configured.',
+      '(location name, version, timezone, unit system) plus WebSocket status. ' +
+      'Call this first to verify the plugin is configured.',
     parameters: {},
     output: {
       schema: {
@@ -51,13 +58,14 @@ export function registerTools(ctx: Context, client: HomeAssistantClient, config:
           location: { type: 'string' },
           version: { type: 'string' },
           timezone: { type: 'string' },
+          websocket: { type: 'string' },
         },
       },
       render: (_args, value) => {
-        const v = value as { reachable?: boolean; location?: string; version?: string; timezone?: string }
+        const v = value as { reachable?: boolean; location?: string; version?: string; timezone?: string; websocket?: string }
         return text(
           v.reachable
-            ? `Home Assistant reachable: "${v.location}" (version ${v.version ?? 'unknown'}, timezone ${v.timezone ?? 'unknown'})`
+            ? `Home Assistant reachable: "${v.location}" (version ${v.version ?? 'unknown'}, timezone ${v.timezone ?? 'unknown'}, websocket ${v.websocket ?? 'n/a'})`
             : 'Home Assistant unreachable',
         )
       },
@@ -73,6 +81,7 @@ export function registerTools(ctx: Context, client: HomeAssistantClient, config:
         location: configInfo.location_name ?? '',
         version: configInfo.version ?? '',
         timezone: configInfo.time_zone ?? '',
+        websocket: ws.status,
       }
     },
   }))
@@ -222,7 +231,8 @@ export function registerTools(ctx: Context, client: HomeAssistantClient, config:
     name: 'ha_call_service',
     description:
       'Call a Home Assistant service, e.g. light.turn_on, switch.turn_off, climate.set_temperature. ' +
-      'Requires human approval (configurable). Use ha_list_entities first to find valid entity ids.',
+      'Target by entity id(s), by area (areaId — affects everything in that room), or by device (deviceId). ' +
+      'Requires human approval (configurable). Use ha_list_entities / ha_list_areas first.',
     parameters: {
       domain: { type: 'string', required: true, description: 'Service domain, e.g. "light"' },
       service: { type: 'string', required: true, description: 'Service name, e.g. "turn_on"' },
@@ -232,6 +242,8 @@ export function registerTools(ctx: Context, client: HomeAssistantClient, config:
         items: { type: 'string' },
         description: 'Target multiple entities (takes precedence over entityId)',
       },
+      areaId: { type: 'string', description: 'Target every device in an area, e.g. "living_room" (see ha_list_areas)' },
+      deviceId: { type: 'string', description: 'Target a device, e.g. "a1b2c3…"' },
       data: {
         type: 'object',
         additionalProperties: true,
@@ -246,14 +258,12 @@ export function registerTools(ctx: Context, client: HomeAssistantClient, config:
           ok: { type: 'boolean' },
           domain: { type: 'string' },
           service: { type: 'string' },
-          target: { type: 'array', items: { type: 'string' } },
+          target: { type: 'string' },
           data: { type: 'json' },
         },
       },
       render: (_args, value) => {
-        const target = (value.target as string[]).length
-          ? (value.target as string[]).join(', ')
-          : '(whole domain)'
+        const target = (value.target as string) || '(whole domain)'
         return text(`Called ${value.domain}.${value.service} on ${target}${value.data ? ` with ${JSON.stringify(value.data)}` : ''}.`)
       },
       // UI cards for the pending and completed call.
@@ -275,17 +285,112 @@ export function registerTools(ctx: Context, client: HomeAssistantClient, config:
       const entityIds = args.entityIds?.length
         ? args.entityIds
         : (args.entityId ? [args.entityId] : [])
+      // HA service bodies accept entity_id | area_id | device_id.
       const target: Record<string, unknown> | undefined = entityIds.length
         ? { entity_id: entityIds }
-        : undefined
+        : (args.areaId
+            ? { area_id: args.areaId }
+            : (args.deviceId ? { device_id: args.deviceId } : undefined))
+      const label = entityIds.length
+        ? entityIds.join(', ')
+        : (args.areaId ? `area:${args.areaId}` : (args.deviceId ? `device:${args.deviceId}` : ''))
       await client.callService(args.domain, args.service, target, args.data ?? undefined)
       return {
         ok: true,
         domain: args.domain,
         service: args.service,
-        target: entityIds,
+        target: label,
         data: (args.data ?? null) as JsonValue,
       }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'ha_list_areas',
+    description:
+      'List Home Assistant areas (rooms) via the WebSocket API. ' +
+      'Use the returned area_id with ha_call_service to control everything in a room at once.',
+    parameters: {},
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          count: { type: 'number' },
+          areas: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: true,
+              properties: {
+                area_id: { type: 'string' },
+                name: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      render: (_args, value) => {
+        const areas = value.areas as { area_id: string; name: string }[]
+        return text(areas.length
+          ? areas.map(a => `- ${a.area_id}: ${a.name}`).join('\n')
+          : '(no areas)')
+      },
+    },
+    async execute() {
+      const areas = await ws.listAreas()
+      return {
+        count: areas.length,
+        areas: areas.map(a => ({ area_id: a.area_id, name: a.name })),
+      }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'ha_events',
+    description:
+      'Return recent real-time state changes buffered from the Home Assistant WebSocket ' +
+      '(entity, state, previous state, timestamp). Empty when WebSocket is not connected.',
+    parameters: {
+      limit: { type: 'number', description: 'Maximum events to return' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          count: { type: 'number' },
+          websocket: { type: 'string' },
+          events: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: true,
+              properties: {
+                entity_id: { type: 'string' },
+                state: { type: 'string' },
+                old_state: { oneOf: [{ type: 'string' }, { type: 'null' }] },
+                last_changed: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      render: (_args, value) => {
+        const events = value.events as { entity_id: string; state: string; old_state: string; last_changed: string }[]
+        const lines = events.map(e => `- ${e.last_changed}  ${e.entity_id}: ${e.old_state ?? '—'} → ${e.state}`)
+        return text(truncate(lines.join('\n') || '(no recent events)'))
+      },
+    },
+    async execute(args) {
+      const limit = Math.min(Math.max(args.limit ?? 20, 1), 200)
+      const events = ws.events.slice(-limit).map(e => ({
+        entity_id: e.entity_id,
+        state: e.state,
+        old_state: e.old_state,
+        last_changed: e.last_changed,
+      }))
+      return { count: events.length, websocket: ws.status, events }
     },
   }))
 

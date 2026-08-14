@@ -1,7 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { PreToolDecision } from '@deepseek-ai/dsh-tools'
 import { Config as ConfigSchema, type Config } from './config'
-import { HomeAssistantClient } from './ha'
+import { HomeAssistantClient, HomeAssistantWsClient } from './ha'
 import { registerTools } from './tools'
 
 export const name = 'dsh-smarthome'
@@ -19,7 +19,19 @@ export function apply(ctx: Context, config: Config) {
   const token = config.token || (config.tokenEnv ? process.env[config.tokenEnv] ?? '' : '')
   const client = new HomeAssistantClient(config.baseUrl, token, config.timeoutMs)
 
-  registerTools(ctx, client, config)
+  // Real-time WebSocket client (state_changed events + area registry). The
+  // effect ties its lifetime to this plugin fiber: `start()` on load,
+  // `dispose()` on unload / HMR.
+  const ws = new HomeAssistantWsClient(config.baseUrl, token, {
+    enabled: config.wsEnabled,
+    bufferSize: config.eventBufferSize,
+  })
+  ctx.effect(() => {
+    ws.start()
+    return () => ws.dispose()
+  }, `${name}.ws`)
+
+  registerTools(ctx, client, ws, config)
 
   // Approval + allowlist policy on the tools/pre-execute waterfall.
   // `ask` pauses the call until a human approves through the approval seam.

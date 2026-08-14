@@ -160,3 +160,219 @@ export class HomeAssistantClient {
     })
   }
 }
+
+// ---------------------------------------------------------------------------
+// WebSocket API (real-time) — uses Node's built-in global WebSocket (Node ≥ 22),
+// so the plugin keeps zero runtime dependencies.
+// ---------------------------------------------------------------------------
+
+export interface HaArea {
+  area_id: string
+  name: string
+}
+
+/** One `state_changed` event, normalized for the model. */
+export interface HaStateChange {
+  entity_id: string
+  state: string
+  old_state: string | null
+  last_changed: string
+}
+
+export type HaWsStatus = 'connected' | 'connecting' | 'disconnected' | 'unavailable'
+
+export interface HaWsOptions {
+  /** Master switch; false disables the socket entirely. */
+  enabled: boolean
+  /** Rolling event buffer size. */
+  bufferSize: number
+  /** Optional listener for every normalized state change (inject notifications). */
+  onEvent?: (change: HaStateChange) => void
+}
+
+interface WsMessage {
+  id?: number
+  type: string
+  success?: boolean
+  event?: { event_type?: string; data?: Record<string, unknown> }
+  result?: unknown
+}
+
+interface PendingRequest {
+  resolve: (value: unknown) => void
+  reject: (reason: Error) => void
+  timer: ReturnType<typeof setTimeout>
+}
+
+/**
+ * Minimal Home Assistant WebSocket client: authenticates, subscribes to
+ * `state_changed`, keeps a rolling event buffer, answers pings, and reconnects
+ * with backoff. All WS features degrade gracefully when the socket is
+ * unavailable (no WebSocket global) or disconnected (real HA not reachable).
+ *
+ * `start()` opens the socket; `dispose()` closes it and stops reconnecting.
+ */
+export class HomeAssistantWsClient {
+  private readonly baseUrl: string
+  private readonly token: string
+  private readonly options: HaWsOptions
+  private socket: WebSocket | null = null
+  private readonly pending = new Map<number, PendingRequest>()
+  private nextId = 1
+  private disposed = false
+  private reconnectDelay = 1000
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+
+  status: HaWsStatus = 'disconnected'
+  readonly events: HaStateChange[] = []
+
+  constructor(baseUrl: string, token: string, options: HaWsOptions) {
+    this.baseUrl = baseUrl.replace(/\/+$/, '')
+    this.token = token
+    this.options = options
+  }
+
+  /** Open the socket (no-op when disabled or unavailable). */
+  start(): void {
+    if (this.disposed) return
+    if (!this.options.enabled) {
+      this.status = 'disconnected'
+      return
+    }
+    if (typeof WebSocket === 'undefined') {
+      this.status = 'unavailable'
+      return
+    }
+    if (this.socket && this.socket.readyState < 2) return // already open/connecting
+
+    const wsUrl = `${this.baseUrl.replace(/^http/, 'ws')}/api/websocket`
+    const socket = new WebSocket(wsUrl)
+    this.socket = socket
+    this.status = 'connecting'
+
+    socket.addEventListener('open', () => {
+      socket.send(JSON.stringify({ type: 'auth', access_token: this.token }))
+    })
+    socket.addEventListener('message', (event) => {
+      this.onMessage(event.data as string)
+    })
+    socket.addEventListener('close', () => {
+      if (this.socket === socket) this.socket = null
+      if (this.status !== 'unavailable') this.status = 'disconnected'
+      this.scheduleReconnect()
+    })
+    socket.addEventListener('error', () => {
+      // 'close' follows; nothing to do here.
+    })
+  }
+
+  private onMessage(raw: string): void {
+    let msg: WsMessage
+    try {
+      msg = JSON.parse(raw) as WsMessage
+    } catch {
+      return
+    }
+    if (msg.type === 'auth_required') {
+      this.socket?.send(JSON.stringify({ type: 'auth', access_token: this.token }))
+      return
+    }
+    if (msg.type === 'auth_ok') {
+      this.status = 'connected'
+      this.reconnectDelay = 1000
+      this.socket?.send(JSON.stringify({
+        id: this.nextId++,
+        type: 'subscribe_events',
+        event_type: 'state_changed',
+      }))
+      return
+    }
+    if (msg.type === 'auth_invalid' || msg.type === 'auth_failed') {
+      this.status = 'disconnected'
+      return
+    }
+    if (msg.type === 'pong') return
+    if (msg.type === 'ping') {
+      this.socket?.send(JSON.stringify({ type: 'pong' }))
+      return
+    }
+    if (msg.type === 'event' && msg.event?.event_type === 'state_changed') {
+      const data = msg.event.data ?? {}
+      const entityId = typeof data.entity_id === 'string' ? data.entity_id : ''
+      const newState = data.new_state as { state?: string; last_changed?: string } | null | undefined
+      const oldState = data.old_state as { state?: string } | null | undefined
+      if (entityId && newState?.state != null) {
+        const change: HaStateChange = {
+          entity_id: entityId,
+          state: newState.state,
+          old_state: oldState?.state ?? null,
+          last_changed: newState.last_changed ?? new Date().toISOString(),
+        }
+        this.events.push(change)
+        if (this.events.length > this.options.bufferSize) this.events.shift()
+        this.options.onEvent?.(change)
+      }
+      return
+    }
+    // Request/response correlation (e.g. config/area_registry/list).
+    if (typeof msg.id === 'number') {
+      const pending = this.pending.get(msg.id)
+      if (pending) {
+        this.pending.delete(msg.id)
+        clearTimeout(pending.timer)
+        if (msg.success) pending.resolve(msg.result)
+        else pending.reject(new HomeAssistantError(`Home Assistant WebSocket error: ${JSON.stringify(msg.result)}`))
+      }
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.disposed || this.reconnectTimer || !this.options.enabled) return
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
+      if (this.disposed) return
+      this.start()
+    }, this.reconnectDelay)
+    this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000)
+  }
+
+  /** Query the area registry over the socket (HA WebSocket API). */
+  listAreas(): Promise<HaArea[]> {
+    return this.request<HaArea[]>('config/area_registry/list')
+  }
+
+  private request<T>(type: string, timeoutMs = 8000): Promise<T> {
+    if (this.status === 'unavailable') {
+      return Promise.reject(new HomeAssistantError(
+        'dsh-smarthome: WebSocket is unavailable in this Node runtime (needs the built-in WebSocket, Node ≥ 22).',
+      ))
+    }
+    if (this.status !== 'connected' || !this.socket || this.socket.readyState !== 1) {
+      return Promise.reject(new HomeAssistantError(
+        'dsh-smarthome: WebSocket is not connected to Home Assistant (is it running? check ha_health).',
+      ))
+    }
+    const id = this.nextId++
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id)
+        reject(new HomeAssistantError(`Home Assistant WebSocket request "${type}" timed out after ${timeoutMs}ms`))
+      }, timeoutMs)
+      this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject, timer })
+      this.socket?.send(JSON.stringify({ id, type }))
+    })
+  }
+
+  /** Close the socket and stop reconnecting. */
+  dispose(): void {
+    this.disposed = true
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer)
+      pending.reject(new HomeAssistantError('dsh-smarthome: WebSocket disposed'))
+    }
+    this.pending.clear()
+    if (this.socket) this.socket.close()
+    this.socket = null
+  }
+}

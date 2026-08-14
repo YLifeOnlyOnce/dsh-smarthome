@@ -31,11 +31,13 @@ Click any image to open the live demo — [`docs/demo.html`](docs/demo.html) sim
 
 | Tool | Description | Approval |
 |---|---|---|
-| `ha_health` | Verify the connection; return instance name, version, timezone | read |
+| `ha_health` | Verify the connection; return instance name, version, timezone, WebSocket status | read |
 | `ha_list_entities` | List entities, filter by domain (`light`, `switch`, `sensor`…) and text | read |
+| `ha_list_areas` | List rooms (areas) via the WebSocket API, e.g. `living_room` | read |
 | `ha_get_state` | Full state + attributes of one entity | read |
 | `ha_history` | State-change timeline over a time window | read |
-| `ha_call_service` | Call any service, e.g. `light.turn_on`, `climate.set_temperature` | **ask** |
+| `ha_events` | Recent real-time state changes buffered from the WebSocket | read |
+| `ha_call_service` | Call any service — by **entity**, by **area** (whole room), or by **device** | **ask** |
 | `ha_render_template` | Render a Jinja2 template server-side | **ask** |
 
 Example prompts:
@@ -45,6 +47,10 @@ Example prompts:
 > "Set the living room light to 60% brightness." *(triggers an approval request)*
 >
 > "Show me the boiler switch history for the last 24 hours."
+>
+> "Turn off every light in the bedroom." *(area targeting — one call, whole room)*
+>
+> "What changed in the house in the last hour?" *(real-time `ha_events`)*
 
 ## 📦 Install
 
@@ -94,8 +100,12 @@ HOME_ASSISTANT_TOKEN=demo-token dsh --profile web
 > "Check that Home Assistant is reachable, then list the lights."
 >
 > "Turn on the bedroom light at 200 brightness." — an approval request pops up; approve it, and `ha_get_state` will show the light is actually `on` with `brightness: 200`.
+>
+> "Turn off every light in the living room." — area targeting via the WebSocket area registry.
+>
+> "What changed in the last minute?" — real-time `state_changed` events from the WebSocket feed.
 
-The emulator also drifts the temperature sensor every few seconds, so `ha_history` always has fresh data. Any `Bearer` token works; `demo-token` is just the convention.
+The emulator also drifts the temperature sensor every few seconds, so `ha_history` and `ha_events` always have fresh data. Any `Bearer` token works; `demo-token` is just the convention.
 
 **Want to preview the UI without running dsh at all?** Open [`docs/demo.html`](docs/demo.html) in a browser: it replays a simulated DSH conversation (tool cards + the approval dialog), and its live console talks to the emulator directly when it's running.
 
@@ -117,6 +127,8 @@ Override the plugin row in your profile's `cordis.patch.yml` (later layers win):
     requireApproval: true               # human approval for state-changing calls
     allowedDomains: []                  # e.g. ["light", "switch"]; empty = all domains
     maxHistoryEvents: 200
+    wsEnabled: true                     # real-time events + area registry (WebSocket)
+    eventBufferSize: 50                 # rolling ha_events buffer size
 ```
 
 Then run dsh with the variable set:

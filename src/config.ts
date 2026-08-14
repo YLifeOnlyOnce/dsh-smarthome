@@ -15,6 +15,10 @@ export interface Config {
   allowedDomains: string[]
   /** Maximum history events returned by `ha_history`. */
   maxHistoryEvents: number
+  /** Enable the WebSocket API: real-time state changes, area registry. */
+  wsEnabled: boolean
+  /** Rolling size of the in-memory state-change event buffer (`ha_events`). */
+  eventBufferSize: number
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -39,4 +43,10 @@ export const Config: Schema<Config> = Schema.object({
   maxHistoryEvents: Schema.number()
     .description('Maximum history events returned by ha_history')
     .default(200),
+  wsEnabled: Schema.boolean()
+    .description('Enable the WebSocket API (real-time state changes, area registry)')
+    .default(true),
+  eventBufferSize: Schema.number()
+    .description('Rolling size of the state-change event buffer')
+    .default(50),
 })

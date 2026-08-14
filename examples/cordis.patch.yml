@@ -16,6 +16,8 @@
     requireApproval: true
     allowedDomains: []
     maxHistoryEvents: 200
+    wsEnabled: true
+    eventBufferSize: 50
 
 # ─────────────────────────────────────────────────────────────
 # 方案 B：真实 Home Assistant

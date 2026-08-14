@@ -57,16 +57,15 @@ Example prompts:
 Requires **dsh ≥ 0.1.0-rc.6** (current npm latest).
 
 ```sh
-# From GitHub (source install — pnpm builds on the fly):
-dsh plugin --profile web add github:YLifeOnlyOnce/dsh-smarthome
+# From npm (recommended — prebuilt):
+dsh plugin --profile web add dsh-smarthome
 
+# Or from GitHub (source install — pnpm builds on the fly):
+# dsh plugin --profile web add github:YLifeOnlyOnce/dsh-smarthome
 # If pnpm refuses to run the prepare build on a git dependency, allow it once:
 #   add this to <profile>/pnpm-workspace.yaml, then re-run the add:
 #     allowBuilds:
 #       dsh-smarthome: true
-
-# Or from npm once published:
-# dsh plugin --profile web add dsh-smarthome
 ```
 
 Restart `dsh --profile web` after installing. Manage it in **Settings → Plugins**.

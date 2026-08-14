@@ -57,16 +57,15 @@
 需要 **dsh ≥ 0.1.0-rc.6**（当前 npm latest）。
 
 ```sh
-# 从 GitHub 安装（源码安装，pnpm 会在安装时自动构建）：
-dsh plugin --profile web add github:YLifeOnlyOnce/dsh-smarthome
+# 从 npm 安装（推荐，预构建产物）：
+dsh plugin --profile web add dsh-smarthome
 
+# 或从 GitHub 安装（源码安装，pnpm 会在安装时自动构建）：
+# dsh plugin --profile web add github:YLifeOnlyOnce/dsh-smarthome
 # 如果 pnpm 拒绝运行 git 依赖的 prepare 构建脚本，需要放行一次：
 #   在 <profile>/pnpm-workspace.yaml 里加上，然后重新执行 add：
 #     allowBuilds:
 #       dsh-smarthome: true
-
-# 或从 npm 安装（发布后）：
-# dsh plugin --profile web add dsh-smarthome
 ```
 
 安装后重启 `dsh --profile web`。可在 **Settings → Plugins** 管理。

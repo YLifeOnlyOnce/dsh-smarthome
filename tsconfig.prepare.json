@@ -1,0 +1,14 @@
+{
+  "// purpose": "Self-contained compiler settings used by tsdown during the consumer-side `prepare` build (git installs). This repo does not depend on a sibling harness checkout, so the same settings serve dev and CI; type checking is owned by `pnpm typecheck`.",
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "strict": true
+  },
+  "include": ["src"]
+}

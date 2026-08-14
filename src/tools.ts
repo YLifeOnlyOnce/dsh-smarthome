@@ -1,0 +1,316 @@
+import type { Context } from '@deepseek-ai/cordis'
+import {
+  defineTool,
+  type GenericCallView,
+  type GenericResultView,
+  type JsonValue,
+} from '@deepseek-ai/dsh-tools'
+import type { Config } from './config'
+import { HomeAssistantClient, type HaState } from './ha'
+
+/** Text content block helper for `output.render` / card content. */
+function text(value: string): { type: 'text'; text: string }[] {
+  return [{ type: 'text', text: value }]
+}
+
+/** Summarize one state without dumping the whole attribute map. */
+function summarizeState(state: HaState): string {
+  const attrs = state.attributes
+  const bits: string[] = []
+  for (const key of ['friendly_name', 'unit_of_measurement']) {
+    const v = attrs[key]
+    if (typeof v === 'string') bits.push(`${key}=${v}`)
+  }
+  const extra = bits.length ? ` (${bits.join(', ')})` : ''
+  return `${state.entity_id}: ${state.state}${extra}`
+}
+
+/** Cap rendered text at a sane size so huge attribute maps cannot flood context. */
+function truncate(value: string, max = 4000): string {
+  return value.length > max ? `${value.slice(0, max)}…[truncated]` : value
+}
+
+/**
+ * Register the six `ha_*` tools. All reads are cheap and safe; the two
+ * powerful tools (`ha_call_service`, `ha_render_template`) are gated by the
+ * plugin's `tools/pre-execute` policy in index.ts.
+ */
+export function registerTools(ctx: Context, client: HomeAssistantClient, config: Config): void {
+  ctx.tools.register(defineTool({
+    name: 'ha_health',
+    description:
+      'Check the connection to Home Assistant and return instance info ' +
+      '(location name, version, timezone, unit system). Call this first to verify the plugin is configured.',
+    parameters: {},
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          reachable: { type: 'boolean' },
+          location: { type: 'string' },
+          version: { type: 'string' },
+          timezone: { type: 'string' },
+        },
+      },
+      render: (_args, value) => {
+        const v = value as { reachable?: boolean; location?: string; version?: string; timezone?: string }
+        return text(
+          v.reachable
+            ? `Home Assistant reachable: "${v.location}" (version ${v.version ?? 'unknown'}, timezone ${v.timezone ?? 'unknown'})`
+            : 'Home Assistant unreachable',
+        )
+      },
+    },
+    async execute() {
+      const message = await client.health()
+      if (typeof message !== 'string' || !message.includes('API running')) {
+        throw new Error(`Unexpected Home Assistant response: ${JSON.stringify(message)}`)
+      }
+      const configInfo = await client.getConfig()
+      return {
+        reachable: true,
+        location: configInfo.location_name ?? '',
+        version: configInfo.version ?? '',
+        timezone: configInfo.time_zone ?? '',
+      }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'ha_list_entities',
+    description:
+      'List Home Assistant entities, optionally filtered by domain (light, switch, sensor, …) ' +
+      'and/or a text query on entity id or friendly name. Returns compact summaries to keep context small.',
+    parameters: {
+      domain: { type: 'string', description: 'Entity domain filter, e.g. "light" or "sensor"' },
+      query: { type: 'string', description: 'Text search over entity id and friendly name' },
+      limit: { type: 'number', description: 'Maximum entities to return' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          count: { type: 'number' },
+          entities: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: true,
+              properties: {
+                entity_id: { type: 'string' },
+                state: { type: 'string' },
+                friendly_name: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      render: (_args, value) => {
+        const lines = (value.entities as { entity_id: string; state: string; friendly_name?: string }[])
+          .map(e => `- ${e.entity_id}: ${e.state}${e.friendly_name ? ` (${e.friendly_name})` : ''}`)
+        return text(truncate(lines.join('\n') || '(no entities)'))
+      },
+    },
+    async execute(args) {
+      const limit = Math.min(Math.max(args.limit ?? 50, 1), 200)
+      const states = await client.getStates()
+      const query = (args.query ?? '').toLowerCase()
+      const filtered = states
+        .filter(s => !args.domain || s.entity_id.startsWith(`${args.domain}.`))
+        .filter(s => !query ||
+          s.entity_id.toLowerCase().includes(query) ||
+          String(s.attributes.friendly_name ?? '').toLowerCase().includes(query))
+        .sort((a, b) => a.entity_id.localeCompare(b.entity_id))
+        .slice(0, limit)
+      return {
+        count: filtered.length,
+        entities: filtered.map(s => ({
+          entity_id: s.entity_id,
+          state: s.state,
+          friendly_name: typeof s.attributes.friendly_name === 'string'
+            ? s.attributes.friendly_name
+            : '',
+        })),
+      }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'ha_get_state',
+    description:
+      'Get the full state of one Home Assistant entity, including its attributes ' +
+      '(brightness, temperature, battery level, …).',
+    parameters: {
+      entityId: { type: 'string', required: true, description: 'Entity id, e.g. "light.living_room"' },
+    },
+    output: {
+      // The full raw state object; keep it unconstrained so every attribute
+      // HA returns survives round-trip.
+      schema: { type: 'json' },
+      render: (_args, value) => {
+        const s = value as unknown as HaState
+        return text(truncate(`${s.entity_id}: ${s.state}\n${JSON.stringify(s.attributes ?? {}, null, 2)}`))
+      },
+    },
+    async execute(args) {
+      const s = await client.getState(args.entityId)
+      return {
+        entity_id: s.entity_id,
+        state: s.state,
+        attributes: s.attributes,
+        last_changed: s.last_changed,
+        last_updated: s.last_updated,
+      }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'ha_history',
+    description:
+      'Query Home Assistant state history for one entity (or all entities) over a time window. ' +
+      'Returns a compact timeline of state changes. Defaults to the last hour.',
+    parameters: {
+      entityId: { type: 'string', description: 'Entity id filter; omit for all entities' },
+      start: { type: 'string', description: 'ISO 8601 start time; defaults to one hour ago' },
+      end: { type: 'string', description: 'ISO 8601 end time' },
+      maxEvents: { type: 'number', description: 'Maximum timeline entries to return' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          count: { type: 'number' },
+          events: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: true,
+              properties: {
+                entity_id: { type: 'string' },
+                state: { type: 'string' },
+                last_changed: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      render: (_args, value) => {
+        const events = value.events as { entity_id: string; state: string; last_changed: string }[]
+        const lines = events.map(e => `- ${e.last_changed}  ${e.entity_id}: ${e.state}`)
+        return text(truncate(lines.join('\n') || '(no history)'))
+      },
+    },
+    async execute(args) {
+      const periods = await client.getHistory({
+        start: args.start,
+        end: args.end,
+        entityId: args.entityId,
+      })
+      const maxEvents = Math.min(Math.max(args.maxEvents ?? config.maxHistoryEvents, 1), 1000)
+      const events = periods
+        .flat()
+        .map(s => ({ entity_id: s.entity_id, state: s.state, last_changed: s.last_changed }))
+        .slice(0, maxEvents)
+      return { count: events.length, events }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'ha_call_service',
+    description:
+      'Call a Home Assistant service, e.g. light.turn_on, switch.turn_off, climate.set_temperature. ' +
+      'Requires human approval (configurable). Use ha_list_entities first to find valid entity ids.',
+    parameters: {
+      domain: { type: 'string', required: true, description: 'Service domain, e.g. "light"' },
+      service: { type: 'string', required: true, description: 'Service name, e.g. "turn_on"' },
+      entityId: { type: 'string', description: 'Target a single entity, e.g. "light.living_room"' },
+      entityIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Target multiple entities (takes precedence over entityId)',
+      },
+      data: {
+        type: 'object',
+        additionalProperties: true,
+        description: 'Service data, e.g. {"brightness": 128} or {"temperature": 21}',
+      },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          ok: { type: 'boolean' },
+          domain: { type: 'string' },
+          service: { type: 'string' },
+          target: { type: 'array', items: { type: 'string' } },
+          data: { type: 'json' },
+        },
+      },
+      render: (_args, value) => {
+        const target = (value.target as string[]).length
+          ? (value.target as string[]).join(', ')
+          : '(whole domain)'
+        return text(`Called ${value.domain}.${value.service} on ${target}${value.data ? ` with ${JSON.stringify(value.data)}` : ''}.`)
+      },
+      // UI cards for the pending and completed call.
+    },
+    presentCall(args): GenericCallView | undefined {
+      const a = args as { domain?: string; service?: string }
+      if (!a.domain || !a.service) return undefined
+      return { card: 'generic', title: `${a.domain}.${a.service}`, kind: 'execute' }
+    },
+    presentResult(_args, result): GenericResultView | undefined {
+      return {
+        card: 'generic',
+        content: result.isError
+          ? result.content
+          : [{ type: 'text', text: '✅ Service call completed' }],
+      }
+    },
+    async execute(args) {
+      const entityIds = args.entityIds?.length
+        ? args.entityIds
+        : (args.entityId ? [args.entityId] : [])
+      const target: Record<string, unknown> | undefined = entityIds.length
+        ? { entity_id: entityIds }
+        : undefined
+      await client.callService(args.domain, args.service, target, args.data ?? undefined)
+      return {
+        ok: true,
+        domain: args.domain,
+        service: args.service,
+        target: entityIds,
+        data: (args.data ?? null) as JsonValue,
+      }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'ha_render_template',
+    description:
+      'Render a Home Assistant Jinja2 template server-side and return the result. ' +
+      'Powerful: can evaluate sensor states, calculations, and comparisons. Requires approval (configurable).',
+    parameters: {
+      template: { type: 'string', required: true, description: 'Jinja2 template, e.g. "{{ states(\'sensor.temperature\') }}"' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          template: { type: 'string' },
+          rendered: { type: 'string' },
+        },
+      },
+      render: (_args, value) => text(truncate(`Rendered: ${value.rendered}`)),
+    },
+    async execute(args) {
+      const rendered = await client.renderTemplate(args.template)
+      return { template: args.template, rendered }
+    },
+  }))
+}

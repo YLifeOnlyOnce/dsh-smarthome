@@ -1,0 +1,19 @@
+# dsh-smarthome bundle patch (declared by the `dsh.bundle.patch` manifest
+# field): applied over the dsh-base layer when this package appears in a
+# profile's `dsh.profile.bundles` list.
+#
+# Users override these values in their own profile's cordis.patch.yml, e.g.:
+#   - id: smarthome
+#     config:
+#       baseUrl: http://192.168.1.10:8123
+#       tokenEnv: HOME_ASSISTANT_TOKEN
+- insert:
+    - id: smarthome
+      name: dsh-smarthome
+      config:
+        baseUrl: http://homeassistant.local:8123
+        tokenEnv: HOME_ASSISTANT_TOKEN
+        timeoutMs: 15000
+        requireApproval: true
+        allowedDomains: []
+        maxHistoryEvents: 200

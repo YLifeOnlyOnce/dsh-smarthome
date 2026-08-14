@@ -21,7 +21,7 @@ const browser = await puppeteer.launch({
   ],
 })
 const page = await browser.newPage()
-await page.setViewport({ width: 1280, height: 640, deviceScaleFactor: 2 })
+await page.setViewport({ width: 1280, height: 640, deviceScaleFactor: 1 })
 await page.goto(pageUrl, { waitUntil: 'load' })
 // Let the animation breathe so the particles/glows settle into a good frame.
 await new Promise(r => setTimeout(r, 2600))

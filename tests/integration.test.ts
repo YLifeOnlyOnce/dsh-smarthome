@@ -59,7 +59,7 @@ afterAll(() => {
 })
 
 describe('dsh-smarthome in the real tool runtime', () => {
-  it('registers all eleven ha_* tools', async () => {
+  it('registers all fourteen ha_* tools', async () => {
     const ctx = await setup()
     const names = ctx.tools.schemas().map(s => s.name).sort()
     expect(names).toEqual([
@@ -73,7 +73,10 @@ describe('dsh-smarthome in the real tool runtime', () => {
       'ha_list_devices',
       'ha_list_entities',
       'ha_list_scenes',
+      'ha_notify',
       'ha_render_template',
+      'ha_wait_for_state',
+      'ha_weather',
     ])
   })
 
@@ -584,5 +587,112 @@ describe('WebSocket-backed tools against the demo emulator', () => {
     const s = state.value as { state?: string; attributes?: { brightness?: number } }
     expect(s.state).toBe('on')
     expect(s.attributes?.brightness).toBe(90)
+  }, 20000)
+
+  it('ha_wait_for_state matches immediately and reports timeout', async () => {
+    const ctx = await setup({
+      baseUrl: `http://127.0.0.1:${emuPort}`,
+      token: 'demo-token',
+      requireApproval: false,
+    })
+
+    // Immediate match: wait for the boiler's CURRENT state (a previous test
+    // may have toggled it), so the first poll hits.
+    const currentBoiler = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-wait-boiler-now'),
+      name: 'ha_get_state',
+      arguments: { entityId: 'switch.boiler' },
+    })
+    const boilerState = (currentBoiler.value as { state: string }).state
+    const hit = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-wait-hit'),
+      name: 'ha_wait_for_state',
+      arguments: { entityId: 'switch.boiler', targetState: boilerState, timeoutMs: 3000, checkIntervalMs: 200 },
+    })
+    expect(hit.isError).toBe(false)
+    expect((hit.value as { matched: boolean; state: string }).matched).toBe(true)
+    expect((hit.value as { state: string }).state).toBe(boilerState)
+
+    // Timeout: the light never becomes "nope".
+    const miss = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-wait-miss'),
+      name: 'ha_wait_for_state',
+      arguments: { entityId: 'light.living_room', targetState: 'nope', timeoutMs: 800, checkIntervalMs: 200 },
+    })
+    expect(miss.isError).toBe(false) // timeout is a domain outcome, not an error
+    expect((miss.value as { matched: boolean }).matched).toBe(false)
+  }, 20000)
+
+  it('ha_wait_for_state waits for a real change (temperature drift)', async () => {
+    const ctx = await setup({
+      baseUrl: `http://127.0.0.1:${emuPort}`,
+      token: 'demo-token',
+      requireApproval: false,
+    })
+    const before = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-wait-temp-before'),
+      name: 'ha_get_state',
+      arguments: { entityId: 'sensor.temperature' },
+    })
+    const current = (before.value as { state: string }).state
+
+    // The emulator drifts the temperature every 5s; wait for it to change.
+    const wait = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-wait-temp'),
+      name: 'ha_wait_for_state',
+      arguments: { entityId: 'sensor.temperature', notTargetState: current, timeoutMs: 12000, checkIntervalMs: 300 },
+    })
+    expect(wait.isError).toBe(false)
+    const v = wait.value as { matched: boolean; state: string }
+    expect(v.matched).toBe(true)
+    expect(v.state).not.toBe(current)
+  }, 25000)
+
+  it('ha_notify sends persistent and service notifications', async () => {
+    const ctx = await setup({
+      baseUrl: `http://127.0.0.1:${emuPort}`,
+      token: 'demo-token',
+      requireApproval: false,
+    })
+    const persistent = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-notify-1'),
+      name: 'ha_notify',
+      arguments: { message: 'The washer is done', title: 'Chore' },
+    })
+    expect(persistent.isError).toBe(false)
+    expect((persistent.value as { service: string }).service).toBe('persistent_notification')
+
+    const mobile = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-notify-2'),
+      name: 'ha_notify',
+      arguments: { message: 'Front door opened', notifyService: 'mobile_app_my_phone' },
+    })
+    expect(mobile.isError).toBe(false)
+    expect((mobile.value as { service: string }).service).toBe('mobile_app_my_phone')
+  }, 20000)
+
+  it('ha_weather returns a structured forecast', async () => {
+    const ctx = await setup({
+      baseUrl: `http://127.0.0.1:${emuPort}`,
+      token: 'demo-token',
+      requireApproval: false,
+    })
+    const result = await ctx.tools.execute({
+      signal,
+      callId: CallId('t-weather'),
+      name: 'ha_weather',
+      arguments: { forecastDays: 7 },
+    })
+    expect(result.isError).toBe(false)
+    const v = result.value as { condition?: string; temperature?: number; forecast: unknown[] }
+    expect(v.condition).toBe('sunny')
+    expect(v.forecast.length).toBe(5) // emulator ships 5 forecast entries
   }, 20000)
 })

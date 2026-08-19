@@ -43,6 +43,8 @@ Talk to your home the way you talk to an assistant — every write goes through 
 |---|---|
 | "Check the whole house — which devices are still on?" | Agent scans with `ha_list_entities` / `ha_get_state` and summarizes |
 | "Show me the home dashboard." | `ha_dashboard` renders a **live dashboard card** in the conversation — devices, scenes and recent changes at a glance |
+| "Wait until the washer finishes, then tell me on my phone." | `ha_wait_for_state` polls to completion → `ha_notify` pushes to HA |
+| "What's the weather tomorrow — should I take an umbrella?" | `ha_weather` returns a structured forecast |
 | "Set the bedroom light to 200 brightness." | `ha_call_service` → **approval dialog** → executes → state updates instantly |
 | "Turn off every light in the living room." | **Area targeting** — one call controls the whole room |
 | "Start cinema mode." | Scene activation: dimmed lights + TV on — a whole cascade of devices in one shot (`ha_events` shows each change live) |
@@ -81,6 +83,9 @@ dsh-smarthome runs right where dsh runs — **on your computer**. No phone app, 
 | `ha_events` | Recent real-time state changes buffered from the WebSocket | read |
 | `ha_list_scenes` | List one-click scenes (`cinema`, `goodnight`, `away`…) | read |
 | `ha_dashboard` | Full home snapshot rendered as a **dashboard card** in the Web UI | read |
+| `ha_wait_for_state` | Poll until an entity matches / stops matching a state (washer done, temperature reached…) | read |
+| `ha_notify` | Send a notification via Home Assistant (persistent / phone / speaker) | no gate |
+| `ha_weather` | Current weather + structured forecast from the weather entity | read |
 | `ha_call_service` | Call any service — by **entity**, by **area** (whole room), by **device**, or **scene** | **ask** |
 | `ha_render_template` | Render a Jinja2 template server-side | **ask** |
 

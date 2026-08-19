@@ -594,4 +594,176 @@ export function registerTools(
       return snapshot
     },
   }))
+
+  ctx.tools.register(defineTool({
+    name: 'ha_wait_for_state',
+    description:
+      'Poll one entity until its state matches (or stops matching) a target, up to a timeout. ' +
+      'Real monitoring tasks: wait for the washer to finish, wait until the living room reaches ' +
+      'a temperature, watch whether a door stays closed. The call blocks the turn until the ' +
+      'condition is met, the timeout elapses, or the caller cancels. Returns matched=false on timeout ' +
+      '(with the last observed state) — not an error.',
+    parameters: {
+      entityId: { type: 'string', required: true, description: 'Entity to watch, e.g. "binary_sensor.washer" or "sensor.temperature"' },
+      targetState: { type: 'string', description: 'Wait until state EQUALS this (omit to use notTargetState)' },
+      notTargetState: { type: 'string', description: 'Wait until state no longer equals this' },
+      timeoutMs: { type: 'number', description: 'Max wait in ms (default 120000, max 600000)' },
+      checkIntervalMs: { type: 'number', description: 'Poll interval in ms (default 1000, min 200)' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          matched: { type: 'boolean' },
+          entity_id: { type: 'string' },
+          state: { type: 'string' },
+          waitedMs: { type: 'number' },
+        },
+      },
+      render: (_args, value) => text(
+        value.matched
+          ? `${value.entity_id} reached "${value.state}" after ${value.waitedMs}ms`
+          : `${value.entity_id} did not match within ${value.waitedMs}ms (last state: ${value.state})`,
+      ),
+    },
+    async execute(args, exec) {
+      const entityId = args.entityId
+      const timeoutMs = Math.min(Math.max(args.timeoutMs ?? 120000, 500), 600000)
+      const intervalMs = Math.min(Math.max(args.checkIntervalMs ?? 1000, 200), 30000)
+      const start = Date.now()
+      let last = ''
+      while (Date.now() - start < timeoutMs) {
+        if (exec.signal.aborted) throw new Error('cancelled')
+        const state = await client.getState(entityId)
+        last = state.state
+        const hit = args.targetState !== undefined
+          ? state.state === args.targetState
+          : args.notTargetState !== undefined
+            ? state.state !== args.notTargetState
+            : true
+        if (hit) {
+          return { matched: true, entity_id: entityId, state: state.state, waitedMs: Date.now() - start }
+        }
+        await sleep(intervalMs, exec.signal)
+      }
+      return { matched: false, entity_id: entityId, state: last, waitedMs: Date.now() - start }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'ha_notify',
+    description:
+      'Send a notification through Home Assistant: a persistent notification in the HA UI ' +
+      '(default), or any notify service such as a mobile app or speaker. Real business: ' +
+      '"tell me on my phone when the task is done" or "announce on the living room speaker". ' +
+      'Low-risk and not approval-gated.',
+    parameters: {
+      message: { type: 'string', required: true, description: 'Notification text' },
+      title: { type: 'string', description: 'Optional title (persistent_notification only)' },
+      notifyService: {
+        type: 'string',
+        description: 'Notify service id, e.g. "mobile_app_my_phone" or "persistent_notification" (default)',
+      },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          ok: { type: 'boolean' },
+          service: { type: 'string' },
+          message: { type: 'string' },
+        },
+      },
+      render: (_args, value) => text(`Notification sent via ${value.service}.`),
+    },
+    async execute(args) {
+      const service = args.notifyService ?? 'persistent_notification'
+      if (service === 'persistent_notification') {
+        await client.callService('persistent_notification', 'create', undefined, {
+          message: args.message,
+          ...(args.title ? { title: args.title } : {}),
+        })
+      } else {
+        await client.callService('notify', service, undefined, { message: args.message, ...(args.title ? { title: args.title } : {}) })
+      }
+      return { ok: true, service, message: args.message }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'ha_weather',
+    description:
+      'Current weather and a structured forecast from the Home Assistant weather entity. ' +
+      'Saves the model from parsing raw weather attributes. Example: "what is the weather ' +
+      'like tomorrow and should I take an umbrella?".',
+    parameters: {
+      entityId: { type: 'string', description: 'Weather entity id; defaults to the first weather.* entity' },
+      forecastDays: { type: 'number', description: 'Forecast entries to return (default 3, max 7)' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          entity_id: { type: 'string' },
+          condition: { type: 'string' },
+          temperature: { type: 'json' },
+          humidity: { type: 'json' },
+          forecast: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: true,
+              properties: {
+                datetime: { type: 'string' },
+                condition: { type: 'string' },
+                temperature: { type: 'json' },
+                precipitation_probability: { type: 'json' },
+              },
+            },
+          },
+        },
+      },
+      render: (_args, value) => {
+        const v = value as { condition?: string; temperature?: unknown; forecast?: { datetime: string; condition?: string; temperature?: unknown }[] }
+        const lines = (v.forecast ?? []).map(f => `- ${f.datetime}: ${f.condition ?? '?'} ${f.temperature != null ? `${f.temperature}°` : ''}`)
+        return text(truncate(`Weather: ${v.condition ?? 'unknown'}${v.temperature != null ? `, ${v.temperature}°` : ''}\n${lines.join('\n')}`))
+      },
+    },
+    async execute(args) {
+      const states = await client.getStates()
+      const weather = args.entityId
+        ? await client.getState(args.entityId)
+        : states.find(s => s.entity_id.startsWith('weather.'))
+        ?? (() => { throw new Error('dsh-smarthome: no weather entity found in Home Assistant') })()
+      const attrs = weather.attributes
+      const rawForecast = Array.isArray(attrs.forecast) ? attrs.forecast as Array<Record<string, unknown>> : []
+      const days = Math.min(Math.max(args.forecastDays ?? 3, 1), 7)
+      return {
+        entity_id: weather.entity_id,
+        condition: typeof attrs.condition === 'string' ? attrs.condition : weather.state,
+        ...(attrs.temperature != null ? { temperature: attrs.temperature as JsonValue } : {}),
+        ...(attrs.humidity != null ? { humidity: attrs.humidity as JsonValue } : {}),
+        forecast: rawForecast.slice(0, days).map(f => ({
+          datetime: String(f.datetime ?? ''),
+          ...(f.condition != null ? { condition: String(f.condition) } : {}),
+          ...(f.temperature != null ? { temperature: f.temperature as JsonValue } : {}),
+          ...(f.precipitation_probability != null ? { precipitation_probability: f.precipitation_probability as JsonValue } : {}),
+        })),
+      }
+    },
+  }))
+}
+
+/** Resolve after `ms`, abortable via the execution signal. */
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms)
+    signal.addEventListener('abort', () => {
+      clearTimeout(timer)
+      reject(new Error('cancelled'))
+    }, { once: true })
+  })
 }

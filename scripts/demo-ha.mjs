@@ -124,6 +124,13 @@ const entities = new Map([
   ['scene.cinema', entity('scene.cinema', 'off', { friendly_name: 'Cinema Mode' })],
   ['scene.goodnight', entity('scene.goodnight', 'off', { friendly_name: 'Goodnight Mode' })],
   ['scene.away', entity('scene.away', 'off', { friendly_name: 'Away Mode' })],
+  ['weather.home', entity('weather.home', 'sunny', { friendly_name: 'Home Weather', temperature: 22, humidity: 50, condition: 'sunny', forecast: [
+    { datetime: '2026-08-19T12:00', condition: 'sunny', temperature: 24, precipitation_probability: 0 },
+    { datetime: '2026-08-20T12:00', condition: 'partlycloudy', temperature: 21, precipitation_probability: 20 },
+    { datetime: '2026-08-21T12:00', condition: 'rainy', temperature: 18, precipitation_probability: 80 },
+    { datetime: '2026-08-22T12:00', condition: 'cloudy', temperature: 19, precipitation_probability: 30 },
+    { datetime: '2026-08-23T12:00', condition: 'sunny', temperature: 25, precipitation_probability: 0 },
+  ] })],
 ])
 
 /** One-click scenes: scene id → entities to set when activated. */
@@ -313,6 +320,10 @@ const server = createServer((req, res) => {
       else if (typeof data.area_id === 'string') targets = AREA_ENTITIES[data.area_id] ?? []
       else if (typeof data.device_id === 'string') targets = DEVICE_ENTITIES[data.device_id] ?? []
       else targets = [...entities.keys()]
+      // Notifications are fire-and-forget: accept any notify.* / persistent_notification.* call.
+      if (domain === 'notify' || domain === 'persistent_notification') {
+        return sendJson(res, 200, {})
+      }
       const fn = services[domain]?.[service]
       if (!fn) {
         return sendJson(res, 404, { message: `Service ${domain}.${service} not found` })

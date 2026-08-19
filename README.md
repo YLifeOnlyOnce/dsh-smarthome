@@ -212,7 +212,7 @@ node scripts/capture-demo.mjs   # regenerate the README screenshots
 - Requires a **long-lived access token** (Profile → Security → Long-lived access tokens).
 - Caveats: self-signed HTTPS certificates are not supported (use `http://` or a valid cert); a restricted token that cannot call services will fail `ha_call_service`.
 
-DeepSeek Harness is in developer preview and changes fast. This plugin is verified against the published `@deepseek-ai/dsh@0.1.0-rc.6` line; if a harness update breaks it, please open an issue.
+DeepSeek Harness is in developer preview and changes fast. This plugin is verified against the published `@deepseek-ai/dsh@0.1.0-rc.7` line; if a harness update breaks it, please open an issue.
 
 ## 📄 License
 

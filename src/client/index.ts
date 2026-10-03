@@ -10,7 +10,7 @@ import { dashboardDefinition, type DashboardChatData } from './dashboard'
 import type { DashboardEntity, DashboardSnapshot } from '../dashboard'
 
 /** Required services: the conversation-node registry and the slots service. */
-export const inject = ['conversationEvents', 'slots']
+export const inject = ['uiConversation', 'slots']
 
 // ---------------------------------------------------------------------------
 // Theme (matches the DSH Web dark surface)
@@ -180,7 +180,7 @@ function DashboardView(props: { node: { data: DashboardChatData } }) {
 // Client plugin body
 // ---------------------------------------------------------------------------
 export function apply(ctx: ClientContext & Context): void {
-  ctx.conversationEvents.register(dashboardDefinition)
+  ctx.uiConversation.events.register(dashboardDefinition)
   ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
     name: 'conversation.chat.node',
     key: 'smarthome-dashboard',

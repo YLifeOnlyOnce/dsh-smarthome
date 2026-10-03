@@ -102,7 +102,21 @@ export class HomeAssistantClient {
           res.status,
         )
       }
-      return (await res.json()) as T
+      // Home Assistant is not uniform about content type. Most endpoints answer
+      // application/json, but `POST /api/template` answers `text/plain` with the
+      // bare rendered string, which is not valid JSON — calling res.json() there
+      // threw before the caller could ever see the value. Decide by content type
+      // and shape, then fall back to the raw text.
+      const text = await res.text()
+      const contentType = res.headers.get('content-type') ?? ''
+      if (contentType.includes('json') || text.startsWith('{') || text.startsWith('[')) {
+        try {
+          return JSON.parse(text) as T
+        } catch {
+          // Not JSON after all: fall through and hand back the raw text.
+        }
+      }
+      return text as T
     } catch (err) {
       if (err instanceof HomeAssistantError) throw err
       if (err instanceof Error && err.name === 'AbortError') {
@@ -118,9 +132,19 @@ export class HomeAssistantClient {
     }
   }
 
-  /** `GET /api/` — returns "API running." when reachable. */
-  health(): Promise<string> {
-    return this.request<string>('/api/')
+  /**
+   * `GET /api/` — returns "API running." when reachable. Home Assistant is not
+   * consistent here either: some builds answer with the bare text
+   * `API running.`, others with `{"message":"API running."}`. Return the
+   * message in both cases, and '' when the body is neither.
+   */
+  async health(): Promise<string> {
+    const body = await this.request<unknown>('/api/')
+    if (typeof body === 'string') return body
+    if (typeof body === 'object' && body !== null && typeof (body as { message?: unknown }).message === 'string') {
+      return (body as { message: string }).message
+    }
+    return ''
   }
 
   /** `GET /api/config` — instance name, version, timezone, unit system. */
